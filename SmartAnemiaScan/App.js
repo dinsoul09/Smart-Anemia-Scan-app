@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import SplashScreen from './Splash.ScreenView';
-import SignInScreen from './SignInScreen';
+import SignInScreen from './src/components/SignInComponent'
 
-export default function App() {
+export default function App() { 
 
   const [isShowSplash, setIsShowSplash] = useState(true);
 
