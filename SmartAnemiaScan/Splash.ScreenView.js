@@ -19,8 +19,8 @@ container: {
     backgroundColor: '#33E4DB',
 },
 image: {
-    width:300, 
-    height:300, 
+    width:220, 
+    height:220, 
     resizeMode: "cover"
 },
 });
