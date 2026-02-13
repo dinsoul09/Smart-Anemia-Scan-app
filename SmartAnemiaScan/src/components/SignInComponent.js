@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   StatusBar,
 } from 'react-native';
+
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function SignInScreen() {
