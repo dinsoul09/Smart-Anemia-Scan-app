@@ -82,10 +82,10 @@ export default function SignInScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F1F3F4',
+    backgroundColor: '#FFFFFF'
   },
   header: {
-    height: 85,
+    height: 90,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -98,8 +98,8 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: '#FFFFFF',
-    fontSize: 36,
-    fontWeight: '700',
+    fontSize: 26,
+    fontWeight: '600',
   },
   headerSpacer: {
     width: 18,
@@ -109,35 +109,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   welcome: {
-    color: '#00BCD4',
-    fontSize: 38,
+    color: '#13CAD6',
+    fontSize: 25,
     fontWeight: '700',
   },
   subtitle: {
-    marginTop: 6,
+    marginTop: 5,
     marginBottom: 42,
     color: '#5F6368',
-    fontSize: 20,
+    fontSize: 18,
   },
   label: {
     color: '#333333',
     fontSize: 19,
     fontWeight: '700',
     marginBottom: 10,
+    marginTop: 60,
   },
   passwordLabel: {
     marginTop: 20,
   },
   input: {
-    backgroundColor: '#D7E6EE',
+    backgroundColor: '#E9F6FE',
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
     color: '#00BCD4',
-    fontSize: 30,
+    fontSize: 20,
+    fontWeight: 480,
   },
   passwordWrapper: {
-    backgroundColor: '#D7E6EE',
+    backgroundColor: '#E9F6FE',
     borderRadius: 14,
     paddingLeft: 16,
     paddingRight: 12,
@@ -147,8 +149,9 @@ const styles = StyleSheet.create({
   passwordInput: {
     flex: 1,
     paddingVertical: 14,
-    color: '#00BCD4',
-    fontSize: 30,
+    color: '#13CAD6',
+    fontSize: 20,
+    fontWeight: 500,
   },
   eyeIcon: {
     fontSize: 24,
@@ -157,7 +160,7 @@ const styles = StyleSheet.create({
   forgot: {
     marginTop: 10,
     alignSelf: 'flex-end',
-    color: '#00BCD4',
+    color: '#13CAD6',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -166,15 +169,16 @@ const styles = StyleSheet.create({
     marginTop: 40,
   },
   loginButton: {
-    width: 192,
+    width: 220,
     borderRadius: 28,
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 6,
+    color: '#33E4DB',
   },
   loginText: {
     color: '#FFFFFF',
-    fontSize: 38,
-    fontWeight: '700',
+    fontSize: 28,
+    fontWeight: '600',
   },
   orText: {
     marginTop: 52,
@@ -195,7 +199,7 @@ const styles = StyleSheet.create({
   googleText: {
     color: '#FFFFFF',
     fontSize: 28,
-    fontWeight: '500',
+    fontWeight: '200',
   },
   signupText: {
     marginTop: 48,
@@ -204,7 +208,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   signupLink: {
-    color: '#00BCD4',
+    color: '#13CAD6',
     fontWeight: '700',
   },
 });
