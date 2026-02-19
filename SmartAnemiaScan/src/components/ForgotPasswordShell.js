@@ -22,14 +22,13 @@ export default function ForgotPasswordShell({
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{headerTitle}</Text>
         <View style={styles.headerSpacer} />
+        
       </LinearGradient>
 
       <View style={styles.content}>
-        <Text style={styles.title}>{title}</Text>
-        {description ? <Text style={styles.description}>{description}</Text> : null}
-
+        
         {children}
-
+        {description ? <Text style={styles.description}>{description}</Text> : null}
         {bottomNote ? <Text style={styles.bottomNote}>{bottomNote}</Text> : null}
 
         <TouchableOpacity style={styles.actionOuter} onPress={onAction}>
@@ -76,11 +75,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
     paddingTop: 24,
-  },
-  title: {
-    color: '#111111',
-    fontSize: 35,
-    fontWeight: '700',
   },
   description: {
     marginTop: 8,

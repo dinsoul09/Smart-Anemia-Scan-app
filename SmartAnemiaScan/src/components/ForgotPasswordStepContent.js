@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
 
 function PasswordField({ label, value, onChangeText }) {
@@ -12,7 +12,7 @@ function PasswordField({ label, value, onChangeText }) {
           value={value}
           onChangeText={onChangeText}
           style={styles.passwordInput}
-          placeholder="••••••••••"
+          placeholder="*************"
           placeholderTextColor="#38C4D6"
           secureTextEntry={hidden}
         />
@@ -37,22 +37,44 @@ export default function ForgotPasswordStepContent({
   onConfirmPasswordChange,
   codeError,
 }) {
+    const codeInputRef = useRef(null);
+
+  useEffect(() => {
+    if (step === 'code') {
+      const focusTimer = setTimeout(() => {
+        codeInputRef.current?.focus();
+      }, 100);
+
+      return () => clearTimeout(focusTimer);
+    }
+
+    return undefined;
+  }, [step]);
+
   if (step === 'code') {
     const codeItems = Array.from({ length: 5 }, (_, index) => code[index] ?? '');
 
     return (
       <View>
         <TextInput
+        ref={codeInputRef}
           value={code}
           onChangeText={(value) => onCodeChange(value.replace(/\D/g, '').slice(0, 5))}
           keyboardType="number-pad"
+          textContentType="oneTimeCode"
+          autoComplete="one-time-code"
           maxLength={5}
           style={styles.hiddenInput}
         />
 
         <View style={styles.codeRow}>
           {codeItems.map((item, index) => (
-            <TouchableOpacity key={`code-${index}`} style={styles.codeBox}>
+              <TouchableOpacity
+              key={`code-${index}`}
+              style={styles.codeBox}
+              activeOpacity={0.9}
+              onPress={() => codeInputRef.current?.focus()}
+            >
               <Text style={styles.codeDigit}>{item}</Text>
             </TouchableOpacity>
           ))}

@@ -170,6 +170,7 @@ export default function SignInScreen({ onSignUpPress }) {
         <Text style={styles.subtitle}>Get ready to start scanning!</Text>
 
         <Text style={styles.label}>Email or Mobile Number</Text>
+        
         <TextInput
           placeholder="example@example.com"
           placeholderTextColor="#00BCD4"
