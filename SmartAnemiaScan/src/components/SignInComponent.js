@@ -12,7 +12,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import ForgotPasswordShell from './ForgotPasswordShell';
 import ForgotPasswordStepContent from './ForgotPasswordStepContent';
-export default function SignInScreen({ onSignUpPress }) {
+export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
   const [passwordHidden, setPasswordHidden] = useState(true);
     const [screenMode, setScreenMode] = useState('login');
   const [recoveryStep, setRecoveryStep] = useState('email');
@@ -197,7 +197,7 @@ export default function SignInScreen({ onSignUpPress }) {
          <Text style={styles.forgot}>Forget Password</Text>
          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.loginOuter}>
+        <TouchableOpacity style={styles.loginOuter} onPress={onLoginSuccess}>
           <LinearGradient colors={['#33E4DB', '#00BBD3']} style={styles.loginButton}>
             <Text style={styles.loginText}>Log In</Text>
           </LinearGradient>
