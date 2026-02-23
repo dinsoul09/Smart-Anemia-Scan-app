@@ -2,9 +2,9 @@ import React, { useMemo, useState } from 'react';
 import { SafeAreaView, View, Text, StyleSheet, TouchableOpacity, StatusBar } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather, Ionicons } from '@expo/vector-icons';
-import ButtonShape from "../assets/ButtonShape.png";
-import Messages from "../assets/Messages.png";
-import UserProfile from "../assets/UserProfile.png";
+import Messages from '../assets/Messages.svg'
+import ButtonShape from '../assets/ButtonShape.svg'
+import UserProfile from '../assets/UserProfile.svg'
 
 const TABS = [
   {
