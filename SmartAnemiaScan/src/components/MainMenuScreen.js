@@ -1,16 +1,17 @@
 import React, { useMemo, useState } from 'react';
-import { SafeAreaView, View, Text, StyleSheet, TouchableOpacity, StatusBar } from 'react-native';
+import { SafeAreaView, View, Text, StyleSheet, TouchableOpacity, StatusBar, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Feather, Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import Messages from '../assets/Messages.svg'
 import ButtonShape from '../assets/ButtonShape.svg'
 import UserProfile from '../assets/UserProfile.svg'
-
+import Vector from '../assets/Vector.svg' 
+import Group95 from '../assets/Group95.svg' 
 const TABS = [
   {
     key: 'messages',
     title: 'Help Center',
-    icon: ({ color, size }) => (
+    icon: ({ color, size }) => (  
       <Messages width={size} height={size} color={color} />
     ),
   },
@@ -30,13 +31,12 @@ const TABS = [
   },
 ];
 const CONTACT_CHANNELS = [
-  { key: 'whatsapp', label: 'Whatsapp', value: '+7 777 333 4446', symbol: '☎' },
-  { key: 'email', label: 'Email', value: 'help@smartanemiascan.app', symbol: '@' },
+  { key: 'whatsapp', label: 'Whatsapp', value: '+7 777 333 4446' },
 ];
 
 export default function MainMenuScreen() {
-  const [activeTab, setActiveTab] = useState('profile');
-const [expandedChannel, setExpandedChannel] = useState(null);
+  const [activeTab, setActiveTab] = useState('messages');
+  const [expandedChannel, setExpandedChannel] = useState(null);
   const activeTitle = useMemo(() => {
     const tab = TABS.find((item) => item.key === activeTab);
     return tab ? tab.title : '';
@@ -50,8 +50,13 @@ const [expandedChannel, setExpandedChannel] = useState(null);
       <StatusBar barStyle="light-content" backgroundColor="#00BBD3" />
 
       <LinearGradient colors={['#33E4DB', '#00BBD3']} style={styles.header}>
-        <View style={styles.headerArrowPlaceholder} />
-            <Text style={styles.headerTitle}>{activeTitle}</Text> 
+       <TouchableOpacity style={styles.headerBackButton} activeOpacity={0.8}>
+          <Feather name="chevron-left" size={30} color="#FFFFFF" />
+        </TouchableOpacity>
+        <View style={styles.headerTextWrap}>
+          <Text style={styles.headerTitle}>{activeTitle}</Text>
+          <Text style={styles.headerSubtitle}>How Can We Help You?</Text>
+        </View> 
         <View style={styles.headerArrowPlaceholder} />
       </LinearGradient>
 
@@ -60,7 +65,7 @@ const [expandedChannel, setExpandedChannel] = useState(null);
           <Text style={styles.contactButtonText}>Contact Us</Text>
         </LinearGradient>
 
-        {CONTACT_CHANNELS.map((channel) => {
+         {CONTACT_CHANNELS.slice(0, 1).map((channel) => {
           const isExpanded = expandedChannel === channel.key;
 
           return (
@@ -71,10 +76,10 @@ const [expandedChannel, setExpandedChannel] = useState(null);
                 activeOpacity={0.8}
               >
                 <View style={styles.channelIconWrap}>
-                  <Text style={styles.channelIconText}>{channel.symbol}</Text>
+                 <Messages width={22} height={22} color="#FFFFFF" />
                 </View>
                 <Text style={styles.channelLabel}>{channel.label}</Text>
-                <Text style={styles.channelArrow}>{isExpanded ? '⌃' : '⌄'}</Text>
+                <Feather name={isExpanded ? 'chevron-up' : 'chevron-down'} size={28} color="#00BBD3" />
               </TouchableOpacity>
 
               {isExpanded ? (
@@ -86,6 +91,10 @@ const [expandedChannel, setExpandedChannel] = useState(null);
           );
         })}
       </View>
+      
+        <View style={styles.logoWrap}>
+          <Image source={smartIcon} style={styles.logo} resizeMode="contain" />
+        </View>
 
       <View style={styles.bottomWrapper}>
         {TABS.map((tab) => {
