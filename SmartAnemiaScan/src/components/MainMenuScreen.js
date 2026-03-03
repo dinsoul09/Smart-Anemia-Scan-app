@@ -1,12 +1,12 @@
 import React, { useMemo, useState } from 'react';
-import { SafeAreaView, View, Text, StyleSheet, TouchableOpacity, StatusBar, Image } from 'react-native';
+import { SafeAreaView, View, Text, StyleSheet, TouchableOpacity, StatusBar } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
-import Messages from '../assets/Messages.svg'
-import ButtonShape from '../assets/ButtonShape.svg'
-import UserProfile from '../assets/UserProfile.svg'
-import Vector from '../assets/Vector.svg' 
-import Group95 from '../assets/Group95.svg' 
+import Messages from '../assets/Messages.svg';
+import ButtonShape from '../assets/ButtonShape.svg';
+import UserProfile from '../assets/UserProfile.svg';
+import Vector from '../assets/Vector.svg';
+import Group95 from '../assets/Group95.svg';
 const TABS = [
   {
     key: 'messages',
@@ -50,9 +50,7 @@ export default function MainMenuScreen() {
       <StatusBar barStyle="light-content" backgroundColor="#00BBD3" />
 
       <LinearGradient colors={['#33E4DB', '#00BBD3']} style={styles.header}>
-       <TouchableOpacity style={styles.headerBackButton} activeOpacity={0.8}>
-          <Feather name="chevron-left" size={30} color="#FFFFFF" />
-        </TouchableOpacity>
+       
         <View style={styles.headerTextWrap}>
           <Text style={styles.headerTitle}>{activeTitle}</Text>
           <Text style={styles.headerSubtitle}>How Can We Help You?</Text>
@@ -65,7 +63,7 @@ export default function MainMenuScreen() {
           <Text style={styles.contactButtonText}>Contact Us</Text>
         </LinearGradient>
 
-         {CONTACT_CHANNELS.slice(0, 1).map((channel) => {
+          {CONTACT_CHANNELS.map((channel) => {
           const isExpanded = expandedChannel === channel.key;
 
           return (
@@ -76,10 +74,10 @@ export default function MainMenuScreen() {
                 activeOpacity={0.8}
               >
                 <View style={styles.channelIconWrap}>
-                 <Messages width={22} height={22} color="#FFFFFF" />
+                <Group95 width={24} height={24} />
                 </View>
                 <Text style={styles.channelLabel}>{channel.label}</Text>
-                <Feather name={isExpanded ? 'chevron-up' : 'chevron-down'} size={28} color="#00BBD3" />
+                <Feather name={isExpanded ? 'chevron-up' : 'chevron-down'} size={22} color="#00BBD3" />
               </TouchableOpacity>
 
               {isExpanded ? (
@@ -93,14 +91,14 @@ export default function MainMenuScreen() {
       </View>
       
         <View style={styles.logoWrap}>
-          <Image source={smartIcon} style={styles.logo} resizeMode="contain" />
-        </View>
+        <Vector width={220} height={220} />
+      </View>
 
       <View style={styles.bottomWrapper}>
         {TABS.map((tab) => {
           const isActive = tab.key === activeTab;
           const isCenterTab = tab.key === 'scan';
-          const iconColor = '#00BBD3';
+          
           return (
             <TouchableOpacity
               key={tab.key}
@@ -108,7 +106,7 @@ export default function MainMenuScreen() {
               onPress={() => setActiveTab(tab.key)}
               activeOpacity={0.8}
             >
-              {tab.icon({ color: iconColor, size: isCenterTab ? 34 : 24 })}
+             {tab.icon({ color: '#00BBD3', size: isCenterTab ? 36 : 23 })}
             </TouchableOpacity>
           );
         })}
@@ -123,33 +121,47 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF', 
   },
   header: {
-    height: 92,
-    paddingHorizontal: 16,
+    height: 125,
+    paddingHorizontal: 15,
+    paddingTop: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
   },
-  headerArrowPlaceholder: {
-    width: 24,
+  headerBackButton: {
+    marginTop: 30,
   },
+  headerTextWrap: {
+    flex: 1,
+    alignItems: 'center',
+    marginTop: 22,
+  },
+  
   headerTitle: {
     color: '#FFFFFF',
     fontSize: 28,
     fontWeight: '600',
   },
+  headerSubtitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '500',
+    marginTop: 14,
+  },
   body: {
     flex: 1,
    
-    paddingHorizontal: 24,
-     paddingTop: 20,
+    backgroundColor: '#Ffffff',
+    paddingHorizontal: 20,
+    paddingTop: 20,
   },
   contactButton: {
     alignSelf: 'center',
-    minWidth: 142,
+    minWidth: 150,
     borderRadius: 24,
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 18,
-    marginBottom: 24,
+    marginBottom: 28,
   },
   contactButtonText: {
     color: '#FFFFFF',
@@ -158,7 +170,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   channelSection: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   channelRow: {
     flexDirection: 'row',
@@ -173,43 +185,44 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
-  channelIconText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
-  },
+  
   channelLabel: {
     flex: 1,
     color: '#000000',
-    fontSize: 18,
-    fontWeight: '500',
-  },
-  channelArrow: {
-    color: '#00BBD3',
-    fontSize: 26,
-    fontWeight: '700',
-    paddingHorizontal: 8,
+   
+    fontSize: 25,
+    fontWeight: '400',
+    
   },
   channelCard: {
     marginTop: 10,
-    marginLeft: 52,
-    backgroundColor: '#D9E6EF',
+    marginLeft: 62,
+    backgroundColor: '#E9F6FE',
     borderRadius: 12,
-    paddingVertical: 11,
+    paddingVertical: 15,
     paddingHorizontal: 20,
   },
   channelCardText: {
-    color: '#00BBD3',
-    fontSize: 17,
+    color: '#13CAD6',
+    fontSize: 20,
     fontWeight: '500',
   },
+  logoWrap: {
+    backgroundColor: '#Ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 150,
+   
+
+  },
   bottomWrapper: {
-    marginHorizontal: 12,
-    marginBottom: 16,
+     marginHorizontal: 0,
+    marginBottom: 0,
     backgroundColor: '#E9F6FE',
-    borderRadius: 34,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
     paddingVertical: 10,
-    paddingHorizontal: 30,
+    paddingHorizontal: 32,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -217,7 +230,7 @@ const styles = StyleSheet.create({
   navItem: {
     width: 44,
     height: 44,
-    borderRadius: 20,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
      outlineStyle: 'none',
@@ -225,12 +238,12 @@ const styles = StyleSheet.create({
   navItemCenter: {
     width: 52,
     height: 52,
-    borderRadius: 26,
+    borderRadius: 15,
   },
   navItemActive: {
-   backgroundColor: '#00BBD3',
+   
     backgroundColor: '#FFFFFF',
     borderWidth: 2,
-    borderColor: '#E9F6FE', 
+     borderColor: '#C7D9E5',
   },
 });
