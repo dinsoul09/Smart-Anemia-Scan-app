@@ -66,6 +66,7 @@ export default function MainMenuScreen() {
     const tab = TABS.find((item) => item.key === activeTab);
     return tab ? tab.title : '';
   }, [activeTab]);
+  const isProfileTab = activeTab === 'profile';
    const handleToggleChannel = (channelKey) => {
     setExpandedChannel((prev) => (prev === channelKey ? null : channelKey));
   };
@@ -89,7 +90,7 @@ const renderHelpCenterContent = () => (
                 <Group95 width={24} height={24} />
               </View>
               <Text style={styles.channelLabel}>{channel.label}</Text>
-              <Feather name={isExpanded ? 'chevron-up' : 'chevron-down'} size={22} color="#00BBD3" />
+              <Feather name={isExpanded ? 'chevron-up' : 'chevron-down'} size={22} colors={['#33E4DB', '#00BBD3']}/>
             </TouchableOpacity>
 
             {isExpanded ? (
@@ -116,7 +117,15 @@ const renderHelpCenterContent = () => (
               style={[styles.genderOption, isActive && styles.genderOptionActive]}
               onPress={() => setSelectedGender(option)}
             >
-              <Text style={[styles.genderOptionText, isActive && styles.genderOptionTextActive]}>{option}</Text>
+               {isActive ? (
+                <LinearGradient colors={['#33E4DB', '#00BBD3']} style={styles.genderOptionGradient}>
+                  <Text style={[styles.genderOptionText, styles.genderOptionTextActive]}>{option}</Text>
+                </LinearGradient>
+              ) : (
+                <View style={styles.genderOptionPlain}>
+                  <Text style={styles.genderOptionText}>{option}</Text>
+                </View>
+              )}
             </TouchableOpacity>
           );
         })}
@@ -184,12 +193,16 @@ const renderHelpCenterContent = () => (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#00BBD3" />
 
-      <LinearGradient colors={['#33E4DB', '#00BBD3']} style={styles.header}>
-       
-        <View style={styles.headerTextWrap}>
-          <Text style={styles.headerTitle}>{activeTitle}</Text>
-          <Text style={styles.headerSubtitle}>How Can We Help You?</Text>
-        </View> 
+      <LinearGradient
+        colors={['#33E4DB', '#00BBD3']}
+        style={[styles.header, isProfileTab && styles.headerCompact]}
+      >
+        <View style={[styles.headerTextWrap, isProfileTab && styles.headerTextWrapCompact]}>
+          <Text style={[styles.headerTitle, isProfileTab && styles.headerTitleCompact]}>{activeTitle}</Text>
+          {activeTab === 'messages' ? (
+            <Text style={styles.headerSubtitle}>How Can We Help You?</Text>
+          ) : null}
+        </View>
         <View style={styles.headerArrowPlaceholder} />
       </LinearGradient>
 
@@ -236,6 +249,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+   headerCompact: {
+    height: 95,
+  },
   headerBackButton: {
     marginTop: 30,
   },
@@ -244,11 +260,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 22,
   },
+   headerTextWrapCompact: {
+    marginTop: 8,
+  },
   
   headerTitle: {
     color: '#FFFFFF',
     fontSize: 28,
     fontWeight: '600',
+  },
+  headerTitleCompact: {
+    fontSize: 28,
   },
   headerSubtitle: {
     color: '#FFFFFF',
@@ -340,16 +362,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#00BBD3',
     borderRadius: 18,
+    overflow: 'hidden',
+  },
+  genderOptionActive: {
+    borderColor: 'transparent',
+  },
+  genderOptionGradient: {
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    
+  },
+  genderOptionPlain: {
     paddingVertical: 8,
     paddingHorizontal: 18,
   },
-  genderOptionActive: {
-    backgroundColor: '#00BBD3',
-  },
   genderOptionText: {
-    color: '#00BBD3',
+    color: '#000000',
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '700',
   },
   genderOptionTextActive: {
     color: '#FFFFFF',
@@ -373,7 +403,8 @@ const styles = StyleSheet.create({
     borderColor: '#00BBD3',
     borderRadius: 22,
     paddingVertical: 10,
-    paddingHorizontal: 36,
+    paddingHorizontal: 56,
+    
   },
   saveButtonText: {
     color: '#00BBD3',
