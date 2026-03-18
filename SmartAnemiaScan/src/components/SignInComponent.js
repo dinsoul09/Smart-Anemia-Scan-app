@@ -12,17 +12,39 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import ForgotPasswordShell from './ForgotPasswordShell';
 import ForgotPasswordStepContent from './ForgotPasswordStepContent';
+import { loginUser } from '../api/authApi';
 export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
   const [passwordHidden, setPasswordHidden] = useState(true);
     const [screenMode, setScreenMode] = useState('login');
   const [recoveryStep, setRecoveryStep] = useState('email');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState(false);
   const [code, setCode] = useState('');
   const [secondsLeft, setSecondsLeft] = useState(20);
   const [codeError, setCodeError] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      alert("Please fill in all fields");
+      return;
+    }
+    setLoading(true);
+
+    try {
+      const userData = await loginUser(email, password);
+      console.log('Успешный вход!', userData);
+      
+      if (onLoginSuccess) onLoginSuccess(userData);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (screenMode !== 'forgot' || recoveryStep !== 'code' || secondsLeft <= 0) {
@@ -172,6 +194,8 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
         <Text style={styles.label}>Email or Mobile Number</Text>
         
         <TextInput
+          value={email}
+          onChangeText={setEmail}
           placeholder="example@example.com"
           placeholderTextColor="#00BCD4"
           style={styles.input}
@@ -182,6 +206,8 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
         <Text style={[styles.label, styles.passwordLabel]}>Password</Text>
         <View style={styles.passwordWrapper}>
           <TextInput
+            value={password}
+            onChangeText={setPassword}
             placeholder="************"
             placeholderTextColor="#00BCD4"
             style={styles.passwordInput}
@@ -197,9 +223,15 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
          <Text style={styles.forgot}>Forget Password</Text>
          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.loginOuter} onPress={onLoginSuccess}>
+        <TouchableOpacity 
+          style={styles.loginOuter} 
+          onPress={handleLogin}
+          disabled={loading}
+        >
           <LinearGradient colors={['#33E4DB', '#00BBD3']} style={styles.loginButton}>
-            <Text style={styles.loginText}>Log In</Text>
+            <Text style={styles.loginText}>
+              {loading ? 'Signing in...' : 'Sign In'}
+            </Text>
           </LinearGradient>
         </TouchableOpacity>
 

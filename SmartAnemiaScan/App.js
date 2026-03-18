@@ -12,7 +12,7 @@ export default function App() {
       setIsShowSplash(false);
     }, 3000);
 
-    return () => clearTimeout(timer); // очищаем таймер
+    return () => clearTimeout(timer);
   }, []);
 
   if (isShowSplash) {
@@ -29,9 +29,9 @@ export default function App() {
 
   return (
        <SignInScreen
-      onSignUpPress={() => setActiveScreen('signUp')}
-      onLoginSuccess={() => setActiveScreen('mainMenu')}
-    />
+          onSignUpPress={() => setActiveScreen('signUp')}
+          onLoginSuccess={() => setActiveScreen('mainMenu')}
+        />
   );
 }
 
