@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from 'react';
 import SplashScreen from './Splash.ScreenView';
-import SignInScreen from './src/components/SignInComponent'
-
-export default function App() { 
-
+import SignInScreen from './src/components/SignInComponent';
+import SignUpScreen from './src/components/SignUpComponent';
+import MainMenuScreen from './src/components/MainMenuScreen'; 
+export default function App() {
   const [isShowSplash, setIsShowSplash] = useState(true);
+  const [activeScreen, setActiveScreen] = useState('signIn');
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -14,17 +15,25 @@ export default function App() {
     return () => clearTimeout(timer);
   }, []);
 
+  if (isShowSplash) {
+    return <SplashScreen />;
+  }
+
+  if (activeScreen === 'signUp') {
+   return <SignUpScreen onBackToLogin={() => setActiveScreen('signIn')} />;
+  }
+
+  if (activeScreen === 'mainMenu') {
+    return <MainMenuScreen />;
+  }
+
   return (
-    <>
-      {isShowSplash ? (
-        <SplashScreen />
-      ) : (
-        <SignInScreen />
-      )}
-    </>
+       <SignInScreen
+          onSignUpPress={() => setActiveScreen('signUp')}
+          onLoginSuccess={() => setActiveScreen('mainMenu')}
+        />
   );
 }
-
 
  
  

@@ -12,7 +12,7 @@ git push - загружаем данные в GitHub
 -u origin - используем для первого пуша ветки
 main - название ветки
 6. git push (после первого пуша, далее можно использовать простой вариант)
-
+7. git pull (получение изменений)
 #### Additional
 1. git checkout **-b** <название_ветки> (example: git checkout -b feature/SplashScreen) **(-b - это создание ветки)**
 2. git checkout main -> git checkout <название_ветки> (как перемещаться между ветками)

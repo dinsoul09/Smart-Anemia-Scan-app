@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   SafeAreaView,
   View,
@@ -10,15 +10,174 @@ import {
 } from 'react-native';
 
 import { LinearGradient } from 'expo-linear-gradient';
-
-export default function SignInScreen() {
+import ForgotPasswordShell from './ForgotPasswordShell';
+import ForgotPasswordStepContent from './ForgotPasswordStepContent';
+import { loginUser } from '../api/authApi';
+export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
   const [passwordHidden, setPasswordHidden] = useState(true);
+    const [screenMode, setScreenMode] = useState('login');
+  const [recoveryStep, setRecoveryStep] = useState('email');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [emailError, setEmailError] = useState(false);
+  const [code, setCode] = useState('');
+  const [secondsLeft, setSecondsLeft] = useState(20);
+  const [codeError, setCodeError] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
+  const handleLogin = async () => {
+    if (!email || !password) {
+      alert("Please fill in all fields");
+      return;
+    }
+    setLoading(true);
+
+    try {
+      const userData = await loginUser(email, password);
+      console.log('Успешный вход!', userData);
+      
+      if (onLoginSuccess) onLoginSuccess(userData);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (screenMode !== 'forgot' || recoveryStep !== 'code' || secondsLeft <= 0) {
+      return undefined;
+    }
+
+    const timer = setInterval(() => {
+      setSecondsLeft((value) => value - 1);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [screenMode, recoveryStep, secondsLeft]);
+
+  const countdownLabel = useMemo(() => {
+    const formattedSeconds = String(Math.max(secondsLeft, 0)).padStart(2, '0');
+    return `00:${formattedSeconds}`;
+  }, [secondsLeft]);
+
+  const openForgotPassword = () => {
+    setScreenMode('forgot');
+    setRecoveryStep('email');
+    setEmailError(false);
+    setCode('');
+    setCodeError(false);
+    setSecondsLeft(20);
+  };
+
+  const handleRecoveryBack = () => {
+    if (recoveryStep === 'reset') {
+      setRecoveryStep('code');
+      return;
+    }
+
+    if (recoveryStep === 'code') {
+      setRecoveryStep('email');
+      setCode('');
+      setEmailError(false);
+      setCodeError(false);
+      setSecondsLeft(20);
+      return;
+    }
+
+    setScreenMode('login');
+  };
+
+  const handleSendRecovery = () => {
+    if (recoveryStep === 'email') {
+      const isEmailValid = /^\S+@\S+\.\S+$/.test(email.trim());
+
+      if (!isEmailValid) {
+        setEmailError(true);
+        return;
+      }
+
+      setEmailError(false);
+      setRecoveryStep('code');
+      setSecondsLeft(20);
+      setCodeError(false);
+      return;
+    }
+
+    if (recoveryStep === 'code') {
+      if (code.length < 5) {
+        setCodeError(true);
+        return;
+      }
+
+      setCodeError(false);
+      setRecoveryStep('reset');
+      return;
+    }
+
+    setScreenMode('login');
+    setRecoveryStep('email');
+    setEmailError(false);
+    setCode('');
+    setNewPassword('');
+    setConfirmPassword('');
+  };
+
+  const recoveryTitle = recoveryStep === 'reset' ? '' : recoveryStep === 'code' ? 'Enter code' : 'Enter email';
+
+  const recoveryDescription =
+    recoveryStep === 'email'
+      ? 'Enter your email address. We will send verification code there.'
+      : recoveryStep === 'code'
+        ? `We\'ve sent a verification code to ${email || 'example@mail.com'}`
+        : null;
+
+  const actionLabel = recoveryStep === 'email' ? 'Send code' : recoveryStep === 'code' ? 'Verify code' : 'Create New Password';
+
+  const bottomNote = recoveryStep === 'code' ? `Send code again  ${countdownLabel}` : null;
+
+  if (screenMode === 'forgot') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="#F6F7F8" />
+        <ForgotPasswordShell
+          step={recoveryStep}
+          title={recoveryTitle}
+          description={recoveryDescription}
+          bottomNote={bottomNote}
+          actionLabel={actionLabel}
+          onBack={handleRecoveryBack}
+          onAction={handleSendRecovery}
+        >
+          <ForgotPasswordStepContent
+            step={recoveryStep}
+            email={email}
+            onEmailChange={(value) => {
+              setEmail(value);
+              if (emailError) {
+                setEmailError(false);
+              }
+            }}
+            emailError={emailError}
+            code={code}
+            onCodeChange={setCode}
+            codeError={codeError}
+            newPassword={newPassword}
+            onNewPasswordChange={setNewPassword}
+            confirmPassword={confirmPassword}
+            onConfirmPasswordChange={setConfirmPassword}
+          />
+        </ForgotPasswordShell>
+      </SafeAreaView>
+    );
+  }
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F1F3F4" />
 
-      <LinearGradient colors={['#26C7DA', '#10B7CC']} style={styles.header}>
+      <LinearGradient colors={['#33E4DB', '#00BBD3']} style={styles.header}>
         <TouchableOpacity>
           <Text style={styles.backArrow}>‹</Text>
         </TouchableOpacity>
@@ -33,7 +192,10 @@ export default function SignInScreen() {
         <Text style={styles.subtitle}>Get ready to start scanning!</Text>
 
         <Text style={styles.label}>Email or Mobile Number</Text>
+        
         <TextInput
+          value={email}
+          onChangeText={setEmail}
           placeholder="example@example.com"
           placeholderTextColor="#00BCD4"
           style={styles.input}
@@ -44,6 +206,8 @@ export default function SignInScreen() {
         <Text style={[styles.label, styles.passwordLabel]}>Password</Text>
         <View style={styles.passwordWrapper}>
           <TextInput
+            value={password}
+            onChangeText={setPassword}
             placeholder="************"
             placeholderTextColor="#00BCD4"
             style={styles.passwordInput}
@@ -55,25 +219,36 @@ export default function SignInScreen() {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity>
-          <Text style={styles.forgot}>Forget Password</Text>
-        </TouchableOpacity>
+        <TouchableOpacity onPress={openForgotPassword}>
+         <Text style={styles.forgot}>Forget Password</Text>
+         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.loginOuter}>
-          <LinearGradient colors={['#26C7DA', '#10B7CC']} style={styles.loginButton}>
-            <Text style={styles.loginText}>Log In</Text>
+        <TouchableOpacity 
+          style={styles.loginOuter} 
+          onPress={handleLogin}
+          disabled={loading}
+        >
+          <LinearGradient colors={['#33E4DB', '#00BBD3']} style={styles.loginButton}>
+            <Text style={styles.loginText}>
+              {loading ? 'Signing in...' : 'Sign In'}
+            </Text>
           </LinearGradient>
         </TouchableOpacity>
 
         <Text style={styles.orText}>or sign up with</Text>
 
         <TouchableOpacity style={styles.googleCircle}>
+          <LinearGradient colors={['#33E4DB', '#00BBD3']} style={styles.googleCircle}>
           <Text style={styles.googleText}>G</Text>
+          </LinearGradient>
         </TouchableOpacity>
 
-        <Text style={styles.signupText}>
-          Don’t have an account? <Text style={styles.signupLink}>Sign Up</Text>
-        </Text>
+        <View style={styles.signupRow}>
+          <Text style={styles.signupText}>Don’t have an account?</Text>
+          <TouchableOpacity onPress={onSignUpPress}>
+            <Text style={styles.signupLink}> Sign Up</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -82,10 +257,10 @@ export default function SignInScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F1F3F4',
+    backgroundColor: '#FFFFFF'
   },
   header: {
-    height: 85,
+    height: 90,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -98,8 +273,8 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: '#FFFFFF',
-    fontSize: 36,
-    fontWeight: '700',
+    fontSize: 26,
+    fontWeight: '600',
   },
   headerSpacer: {
     width: 18,
@@ -109,35 +284,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   welcome: {
-    color: '#00BCD4',
-    fontSize: 38,
+    color: '#13CAD6',
+    fontSize: 25,
     fontWeight: '700',
   },
   subtitle: {
-    marginTop: 6,
+    marginTop: 5,
     marginBottom: 42,
     color: '#5F6368',
-    fontSize: 20,
+    fontSize: 18,
   },
   label: {
     color: '#333333',
     fontSize: 19,
     fontWeight: '700',
     marginBottom: 10,
+    marginTop: 60,
   },
   passwordLabel: {
     marginTop: 20,
   },
   input: {
-    backgroundColor: '#D7E6EE',
+    backgroundColor: '#E9F6FE',
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
     color: '#00BCD4',
-    fontSize: 30,
+    fontSize: 20,
+    fontWeight: 480,
   },
   passwordWrapper: {
-    backgroundColor: '#D7E6EE',
+    backgroundColor: '#E9F6FE',
     borderRadius: 14,
     paddingLeft: 16,
     paddingRight: 12,
@@ -147,8 +324,9 @@ const styles = StyleSheet.create({
   passwordInput: {
     flex: 1,
     paddingVertical: 14,
-    color: '#00BCD4',
-    fontSize: 30,
+    color: '#13CAD6',
+    fontSize: 20,
+    fontWeight: 500,
   },
   eyeIcon: {
     fontSize: 24,
@@ -157,7 +335,7 @@ const styles = StyleSheet.create({
   forgot: {
     marginTop: 10,
     alignSelf: 'flex-end',
-    color: '#00BCD4',
+    color: '#13CAD6',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -166,15 +344,16 @@ const styles = StyleSheet.create({
     marginTop: 40,
   },
   loginButton: {
-    width: 192,
+    width: 220,
     borderRadius: 28,
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 6,
+    color: '#33E4DB',
   },
   loginText: {
     color: '#FFFFFF',
-    fontSize: 38,
-    fontWeight: '700',
+    fontSize: 28,
+    fontWeight: '600',
   },
   orText: {
     marginTop: 52,
@@ -188,23 +367,26 @@ const styles = StyleSheet.create({
     height: 42,
     borderRadius: 21,
     alignSelf: 'center',
-    backgroundColor: '#22C0D7',
     alignItems: 'center',
     justifyContent: 'center',
   },
   googleText: {
     color: '#FFFFFF',
     fontSize: 28,
-    fontWeight: '500',
+    fontWeight: '200',
+  },
+   signupRow: {
+    marginTop: 48,
+     flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   signupText: {
-    marginTop: 48,
-    textAlign: 'center',
     color: '#444',
     fontSize: 16,
   },
   signupLink: {
-    color: '#00BCD4',
+    color: '#13CAD6',
     fontWeight: '700',
   },
 });
