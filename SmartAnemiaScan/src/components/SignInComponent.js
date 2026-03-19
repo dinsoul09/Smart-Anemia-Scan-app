@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+
 import {
   SafeAreaView,
   View,
@@ -12,40 +13,50 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import ForgotPasswordShell from './ForgotPasswordShell';
 import ForgotPasswordStepContent from './ForgotPasswordStepContent';
+import ErrorModal from '../modals/ErrorModal/ErrorModal';
+import SuccessModal from '../modals/SuccessModal/SuccessModal';
 import { loginUser } from '../api/authApi';
 export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
+
+  const [isErrorModalVisible, setIsErrorModalVisible] = useState(false);
+  const [emailError, setEmailError] = useState(false);
   const [passwordHidden, setPasswordHidden] = useState(true);
-    const [screenMode, setScreenMode] = useState('login');
+  const [codeError, setCodeError] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [screenMode, setScreenMode] = useState('login');
   const [recoveryStep, setRecoveryStep] = useState('email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [emailError, setEmailError] = useState(false);
   const [code, setCode] = useState('');
-  const [secondsLeft, setSecondsLeft] = useState(20);
-  const [codeError, setCodeError] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [errorModalMessage, setErrorModalMessage] = useState('');
+  const [secondsLeft, setSecondsLeft] = useState(20);
+
+  const [isSuccessModalVisible, setIsSuccessModalVisible] = useState(false);
+  const [successModalMessage, setSuccessModalMessage] = useState('');
 
   const handleLogin = async () => {
     if (!email || !password) {
-      alert("Please fill in all fields");
+      setErrorModalMessage('Пожалуйста, заполните все поля для входа.');
+      setIsErrorModalVisible(true);
       return;
     }
+    
     setLoading(true);
-
     try {
       const userData = await loginUser(email, password);
       console.log('Успешный вход!', userData);
-      
-      if (onLoginSuccess) onLoginSuccess(userData);
+
+      setSuccessModalMessage('Вы успешно вошли в систему!');
+      setIsSuccessModalVisible(true);
     } catch (err) {
-      alert(err.message);
+      setErrorModalMessage(err.message);
+      setIsErrorModalVisible(true);
     } finally {
       setLoading(false);
     }
   };
-
   useEffect(() => {
     if (screenMode !== 'forgot' || recoveryStep !== 'code' || secondsLeft <= 0) {
       return undefined;
@@ -250,6 +261,19 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
           </TouchableOpacity>
         </View>
       </View>
+      <ErrorModal
+        visible={isErrorModalVisible} 
+        errorMessage={errorModalMessage} 
+        onClose={() => setIsErrorModalVisible(false)} 
+      />
+      <SuccessModal
+        visible={isSuccessModalVisible} 
+        message={successModalMessage} 
+        onClose={() => {
+          setIsSuccessModalVisible(false);
+          if (onLoginSuccess) onLoginSuccess(); 
+        }} 
+      />
     </SafeAreaView>
   );
 }
