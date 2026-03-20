@@ -110,22 +110,21 @@ const renderHelpCenterContent = () => (
       <View style={styles.genderOptionsWrap}>
         {GENDER_OPTIONS.map((option) => {
           const isActive = selectedGender === option;
-
+ 
           return (
             <TouchableOpacity
               key={option}
-              style={[styles.genderOption, isActive && styles.genderOptionActive]}
+              style={styles.genderOption}
               onPress={() => setSelectedGender(option)}
+              activeOpacity={0.88}
             >
-               {isActive ? (
-                <LinearGradient colors={['#33E4DB', '#00BBD3']} style={styles.genderOptionGradient}>
-                  <Text style={[styles.genderOptionText, styles.genderOptionTextActive]}>{option}</Text>
-                </LinearGradient>
-              ) : (
-                <View style={styles.genderOptionPlain}>
-                  <Text style={styles.genderOptionText}>{option}</Text>
-                </View>
-              )}
+               <LinearGradient
+                colors={isActive ? ['#33E4DB', '#00BBD3'] : ['#F8FEFF', '#EAFBFF']}
+                style={styles.genderOptionGradient}
+              >
+                <Text style={[styles.genderOptionText, isActive && styles.genderOptionTextActive]}>{option}</Text>
+              </LinearGradient>
+              
             </TouchableOpacity>
           );
         })}
@@ -141,8 +140,10 @@ const renderHelpCenterContent = () => (
         placeholderTextColor="#7CA0AC"
       />
 
-      <TouchableOpacity style={styles.saveButton} onPress={() => setIsProfileSaved(true)}>
-        <Text style={styles.saveButtonText}>Save</Text>
+       <TouchableOpacity style={styles.saveButtonWrap} onPress={() => setIsProfileSaved(true)} activeOpacity={0.9}>
+        <LinearGradient colors={['#33E4DB', '#00BBD3']} style={styles.saveButton}>
+          <Text style={styles.saveButtonText}>Save</Text>
+        </LinearGradient>
       </TouchableOpacity>
     </View>
   );
@@ -348,17 +349,18 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   profileQuestion: {
-    color: '#000000',
-    fontSize: 20,
-    fontWeight: '500',
-    marginBottom: 14,
+    color: '#1F1F1F',
+    fontSize: 22,
+    fontWeight: '600',
+    marginBottom: 20,
   },
   genderOptionsWrap: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 24,
+    justifyContent: 'space-between',
+    marginBottom: 34,
   },
   genderOption: {
+     width: '31%',
     borderWidth: 1,
     borderColor: '#00BBD3',
     borderRadius: 18,
@@ -512,6 +514,6 @@ const styles = StyleSheet.create({
    
     backgroundColor: '#FFFFFF',
     borderWidth: 2,
-     borderColor: '#C7D9E5',
+     borderColor: '#ffffff',
   },
 });
