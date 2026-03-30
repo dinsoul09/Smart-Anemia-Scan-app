@@ -15,7 +15,8 @@ import ForgotPasswordShell from './ForgotPasswordShell';
 import ForgotPasswordStepContent from './ForgotPasswordStepContent';
 import ErrorModal from '../modals/ErrorModal/ErrorModal';
 import SuccessModal from '../modals/SuccessModal/SuccessModal';
-import { loginUser } from '../api/authApi';
+import { loginUser, sendEmailCode, verifyRecoveryCode, resetPassword } from '../api/authApi';
+
 export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
 
   const [isErrorModalVisible, setIsErrorModalVisible] = useState(false);
@@ -101,7 +102,7 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
     setScreenMode('login');
   };
 
-  const handleSendRecovery = () => {
+  const handleSendRecovery = async () => {
     if (recoveryStep === 'email') {
       const isEmailValid = /^\S+@\S+\.\S+$/.test(email.trim());
 
@@ -110,10 +111,19 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
         return;
       }
 
-      setEmailError(false);
-      setRecoveryStep('code');
-      setSecondsLeft(20);
-      setCodeError(false);
+      setLoading(true);
+      try {
+        await sendEmailCode(email);
+        setEmailError(false);
+        setRecoveryStep('code');
+        setSecondsLeft(60); // Standard 1 min reset
+        setCodeError(false);
+      } catch (err) {
+        setErrorModalMessage('Failed to send verification code. Please try again.');
+        setIsErrorModalVisible(true);
+      } finally {
+        setLoading(false);
+      }
       return;
     }
 
@@ -123,17 +133,58 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
         return;
       }
 
-      setCodeError(false);
-      setRecoveryStep('reset');
+      setLoading(true);
+      try {
+        const isValid = await verifyRecoveryCode(email, code);
+        if (isValid) {
+          setCodeError(false);
+          setRecoveryStep('reset');
+        } else {
+          setCodeError(true);
+        }
+      } catch (err) {
+        setCodeError(true);
+        setErrorModalMessage('Invalid or expired code. Please try again.');
+        setIsErrorModalVisible(true);
+      } finally {
+        setLoading(false);
+      }
       return;
     }
 
-    setScreenMode('login');
-    setRecoveryStep('email');
-    setEmailError(false);
-    setCode('');
-    setNewPassword('');
-    setConfirmPassword('');
+    if (recoveryStep === 'reset') {
+      if (newPassword !== confirmPassword) {
+        setErrorModalMessage('Passwords do not match.');
+        setIsErrorModalVisible(true);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        await resetPassword({
+          email: email,
+          code: code,
+          newPassword: newPassword,
+          confirmPassword: confirmPassword
+        });
+
+        setSuccessModalMessage('Your password has been reset successfully!');
+        setIsSuccessModalVisible(true);
+        
+        // After success, we go back to login
+        setScreenMode('login');
+        setRecoveryStep('email');
+        setNewPassword('');
+        setConfirmPassword('');
+        setCode('');
+      } catch (err) {
+        const detail = err.response?.data?.detail || 'Failed to update password. Please try again.';
+        setErrorModalMessage(detail);
+        setIsErrorModalVisible(true);
+      } finally {
+        setLoading(false);
+      }
+    }
   };
 
   const recoveryTitle = recoveryStep === 'reset' ? '' : recoveryStep === 'code' ? 'Enter code' : 'Enter email';
@@ -145,7 +196,7 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
         ? `We\'ve sent a verification code to ${email || 'example@mail.com'}`
         : null;
 
-  const actionLabel = recoveryStep === 'email' ? 'Send code' : recoveryStep === 'code' ? 'Verify code' : 'Create New Password';
+  const actionLabel = loading ? 'Processing...' : (recoveryStep === 'email' ? 'Send code' : recoveryStep === 'code' ? 'Verify code' : 'Create New Password');
 
   const bottomNote = recoveryStep === 'code' ? `Send code again  ${countdownLabel}` : null;
 
@@ -160,7 +211,7 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
           bottomNote={bottomNote}
           actionLabel={actionLabel}
           onBack={handleRecoveryBack}
-          onAction={handleSendRecovery}
+          onAction={loading ? null : handleSendRecovery}
         >
           <ForgotPasswordStepContent
             step={recoveryStep}

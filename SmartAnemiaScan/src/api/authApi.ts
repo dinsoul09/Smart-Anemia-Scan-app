@@ -58,3 +58,41 @@ export const signUpUser = async (data: SignUpData) => {
     throw error;
   }
 };
+
+export const verifyRecoveryCode = async (email: string, code: string) => {
+  try {
+    const response = await axios.post('/Authorization/verification-code', {
+      email,
+      code
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+    return response.status === 200;
+  } catch (error) {
+    console.error("Verify code error", error);
+    throw error;
+  }
+};
+
+export interface ResetPasswordData {
+  email: string;
+  code: string;
+  newPassword?: string;
+  confirmPassword?: string;
+}
+
+export const resetPassword = async (data: ResetPasswordData) => {
+  try {
+    const response = await axios.post('/Authorization/update-password', data, {
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Reset password error", error);
+    throw error;
+  }
+};
