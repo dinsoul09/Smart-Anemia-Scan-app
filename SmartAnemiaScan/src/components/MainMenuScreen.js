@@ -102,7 +102,7 @@ export default function MainMenuScreen() {
           return (
             <TouchableOpacity
               key={tab.key}
-               style={[styles.navItem, isCenterTab && styles.navItemCenter, isActive && styles.navItemActive]}
+              style={[styles.navItem, isCenterTab && styles.navItemCenter, isActive && styles.navItemActive]}
               onPress={() => setActiveTab(tab.key)}
               activeOpacity={0.8}
             >

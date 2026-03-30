@@ -20,7 +20,12 @@ export default function App() {
   }
 
   if (activeScreen === 'signUp') {
-   return <SignUpScreen onBackToLogin={() => setActiveScreen('signIn')} />;
+    return (
+      <SignUpScreen
+        onBackToLogin={() => setActiveScreen('signIn')}
+        onSuccess={() => setActiveScreen('mainMenu')}
+      />
+    );
   }
 
   if (activeScreen === 'mainMenu') {
