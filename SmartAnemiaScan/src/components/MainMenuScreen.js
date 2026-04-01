@@ -10,7 +10,6 @@ import UserProfile from '../assets/UserProfile.svg';
 import Vector from '../assets/Vector.svg';
 import Group95 from '../assets/Group95.svg';
 
-
 const SCAN_UPLOAD_URL = 'https://api-anemiascan.ru/scalar/';
 
 const TABS = [
