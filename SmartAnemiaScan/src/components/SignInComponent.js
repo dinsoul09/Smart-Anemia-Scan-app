@@ -8,14 +8,18 @@ import {
   StyleSheet,
   TouchableOpacity,
   StatusBar,
+  Platform,
 } from 'react-native';
+
 
 import { LinearGradient } from 'expo-linear-gradient';
 import ForgotPasswordShell from './ForgotPasswordShell';
 import ForgotPasswordStepContent from './ForgotPasswordStepContent';
 import ErrorModal from '../modals/ErrorModal/ErrorModal';
 import SuccessModal from '../modals/SuccessModal/SuccessModal';
+import * as SecureStore from 'expo-secure-store';
 import { loginUser, sendEmailCode, verifyRecoveryCode, resetPassword } from '../api/authApi';
+
 
 export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
 
@@ -48,6 +52,33 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
     try {
       const userData = await loginUser(email, password);
       console.log('Успешный вход!', userData);
+
+      // Save token for future API calls based on official schema: { tokenRecord: { accessToken: "..." } }
+      const token = userData?.tokenRecord?.accessToken || 
+                    userData?.tokenRecord?.token || 
+                    userData?.token || 
+                    userData?.accessToken;
+      
+      console.log('Attempting to save token. Extracted:', token ? 'YES' : 'NO');
+
+      if (!token && userData?.tokenRecord) {
+        console.log('Keys in tokenRecord:', Object.keys(userData.tokenRecord));
+      }
+
+      if (token) {
+        if (Platform.OS === 'web') {
+          localStorage.setItem('userToken', token);
+          console.log('Token saved to localStorage (Web)');
+        } else if (SecureStore.setItemAsync) {
+          await SecureStore.setItemAsync('userToken', token);
+          console.log('Token saved to SecureStore (Native)');
+        }
+      } else {
+        console.warn('Token not found in response. Full data:', userData);
+      }
+
+
+
 
       setSuccessModalMessage('Вы успешно вошли в систему!');
       setIsSuccessModalVisible(true);

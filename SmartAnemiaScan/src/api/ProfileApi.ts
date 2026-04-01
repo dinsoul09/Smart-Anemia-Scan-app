@@ -1,12 +1,72 @@
 import axios from "axios";
 
+export enum Sex {
+  Male = 0,
+  Female = 1,
+}
+
+export interface AnemiaScan {
+  id: string;
+  analysisId: string | null;
+  userId: string | null;
+  scanDate: string;
+  hemoglobinLevel: number | null;
+  isAnemic: boolean;
+  createdAt: string;
+  updatedAt: string;
+  confidence: number;
+  imageType: string;
+  imageGridFsId: {
+    timestamp: number;
+    creationTime: string;
+  };
+  imageSystemId: string | null;
+  modelVersion: string | null;
+}
+
+export interface ProfileInfo {
+  id: string;
+  email: string | null;
+  fullName: string | null;
+  birthDate: string | null;
+  sex?: Sex | null;
+  age?: number | null;
+  createdAt: string;
+  updatedAt: string;
+  anemiaScans: AnemiaScan[];
+}
+
+export interface ProfileResponse {
+  profile: ProfileInfo;
+}
+
 export interface UpdateProfileDto {
   email?: string | null;
   fullName?: string | null;
   birthDate?: string | null;
+  sex?: Sex | null;
+  age?: number | null;
   password?: string | null;
   confirmPassword?: string | null;
 }
+
+/**
+ * Fetches user profile and scan history
+ * @param token - Authorization Bearer token
+ */
+export const getProfileInfo = async (token: string): Promise<ProfileResponse> => {
+  try {
+    const response = await axios.get('/Profile/info', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Fetch profile error", error);
+    throw error;
+  }
+};
 
 /**
  * Updates user profile (used for password reset as well)

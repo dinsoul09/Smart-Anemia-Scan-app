@@ -7,6 +7,8 @@ import ButtonShape from '../assets/ButtonShape.svg';
 import UserProfile from '../assets/UserProfile.svg';
 import Vector from '../assets/Vector.svg';
 import Group95 from '../assets/Group95.svg';
+import ProfileScreen from './ProfileScreen';
+
 const TABS = [
   {
     key: 'messages',
@@ -33,35 +35,12 @@ const TABS = [
 const CONTACT_CHANNELS = [
   { key: 'whatsapp', label: 'Whatsapp', value: '+7 777 333 4446' },
 ];
-const GENDER_OPTIONS = ['Male', 'Female', 'Other'];
 
-const PROFILE_RESULTS = [
-  {
-    key: 'blood',
-    title: 'Anemia : Yes/No ',
-    result: 'Anemia probability:',
-    date: 'Added Manually 10 Febraury 20XX',
-  },
-  {
-    key: 'urine',
-    title: 'Anemia : Yes/No ',
-    result: 'Anemia probability:',
-    date: 'Added Manually 10 Febraury 20XX',
-  },
-  {
-    key: 'lipid',
-   title: 'Anemia : Yes/No ',
-    result: 'Anemia probability:',
-    date: 'Added Manually 10 Febraury 20XX',
-  },
-];
 
 export default function MainMenuScreen() {
   const [activeTab, setActiveTab] = useState('messages');
   const [expandedChannel, setExpandedChannel] = useState(null);
-  const [selectedGender, setSelectedGender] = useState('Male');
-  const [age, setAge] = useState('26');
-  const [isProfileSaved, setIsProfileSaved] = useState(false);
+
   const activeTitle = useMemo(() => {
     const tab = TABS.find((item) => item.key === activeTab);
     return tab ? tab.title : '';
@@ -104,88 +83,13 @@ const renderHelpCenterContent = () => (
     </>
   );
 
-  const renderProfileSetup = () => (
-    <View style={styles.profileContent}>
-      <Text style={styles.profileQuestion}>What is your gender</Text>
-      <View style={styles.genderOptionsWrap}>
-        {GENDER_OPTIONS.map((option) => {
-          const isActive = selectedGender === option;
- 
-          return (
-            <TouchableOpacity
-              key={option}
-              style={styles.genderOption}
-              onPress={() => setSelectedGender(option)}
-              activeOpacity={0.88}
-            >
-               <LinearGradient
-                colors={isActive ? ['#33E4DB', '#00BBD3'] : ['#F8FEFF', '#EAFBFF']}
-                style={styles.genderOptionGradient}
-              >
-                <Text style={[styles.genderOptionText, isActive && styles.genderOptionTextActive]}>{option}</Text>
-              </LinearGradient>
-              
-            </TouchableOpacity>
-          );
-        })}
-      </View>
 
-      <Text style={[styles.profileQuestion, styles.profileAgeQuestion]}>How old are you</Text>
-      <TextInput
-        style={styles.ageInput}
-        keyboardType="number-pad"
-        value={age}
-        onChangeText={(value) => setAge(value.replace(/[^0-9]/g, ''))}
-        placeholder="Enter age"
-        placeholderTextColor="#7CA0AC"
-      />
-
-       <TouchableOpacity style={styles.saveButtonWrap} onPress={() => setIsProfileSaved(true)} activeOpacity={0.9}>
-        <LinearGradient colors={['#33E4DB', '#00BBD3']} style={styles.saveButton}>
-          <Text style={styles.saveButtonText}>Save</Text>
-        </LinearGradient>
-      </TouchableOpacity>
-    </View>
-  );
-
-  const renderProfileResult = () => (
-    <View style={styles.profileContent}>
-      <View style={styles.profileInfoRow}>
-        <Text style={styles.profileLabel}>Gender</Text>
-        <View style={styles.profileValueBadge}>
-          <Text style={styles.profileValueText}>{selectedGender || '-'}</Text>
-        </View>
-      </View>
-
-      <View style={styles.profileInfoRow}>
-        <Text style={styles.profileLabel}>Age</Text>
-        <View style={styles.profileValueBadge}>
-          <Text style={styles.profileValueText}>{age || '-'}</Text>
-        </View>
-      </View>
-
-      <LinearGradient colors={['#33E4DB', '#00BBD3']} style={styles.scansButton}>
-        <Text style={styles.scansButtonText}>Your scans</Text>
-      </LinearGradient>
-
-      {PROFILE_RESULTS.map((item) => (
-        <View key={item.key} style={styles.resultCard}>
-          <Text style={styles.resultTitle}>{item.title}</Text>
-          <Text style={styles.resultText}>{item.result}</Text>
-          <Text style={styles.resultDate}>{item.date}</Text>
-        </View>
-      ))}
-
-      <TouchableOpacity style={styles.editProfileButton} onPress={() => setIsProfileSaved(false)}>
-        <Text style={styles.editProfileButtonText}>Edit profile</Text>
-      </TouchableOpacity>
-    </View>
-  );
 
   const renderBodyContent = () => {
     if (activeTab === 'profile') {
-      return isProfileSaved ? renderProfileResult() : renderProfileSetup();
+      return <ProfileScreen />;
     }
+
 
     return renderHelpCenterContent();
   };
@@ -345,146 +249,6 @@ const styles = StyleSheet.create({
     paddingBottom: 150,
    
       },
-  profileContent: {
-    paddingBottom: 24,
-  },
-  profileQuestion: {
-    color: '#1F1F1F',
-    fontSize: 22,
-    fontWeight: '600',
-    marginBottom: 20,
-  },
-  genderOptionsWrap: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 34,
-  },
-  genderOption: {
-     width: '31%',
-    borderWidth: 1,
-    borderColor: '#00BBD3',
-    borderRadius: 18,
-    overflow: 'hidden',
-  },
-  genderOptionActive: {
-    borderColor: 'transparent',
-  },
-  genderOptionGradient: {
-    paddingVertical: 8,
-    paddingHorizontal: 18,
-    
-  },
-  genderOptionPlain: {
-    paddingVertical: 8,
-    paddingHorizontal: 18,
-  },
-  genderOptionText: {
-    color: '#000000',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  genderOptionTextActive: {
-    color: '#FFFFFF',
-  },
-  profileAgeQuestion: {
-    marginBottom: 10,
-  },
-  ageInput: {
-    borderWidth: 1,
-    borderColor: '#D2DEE4',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    color: '#1A3C47',
-    fontSize: 16,
-    marginBottom: 36,
-  },
-  saveButton: {
-    alignSelf: 'center',
-    borderWidth: 1,
-    borderColor: '#00BBD3',
-    borderRadius: 22,
-    paddingVertical: 10,
-    paddingHorizontal: 56,
-    
-  },
-  saveButtonText: {
-    color: '#00BBD3',
-    fontSize: 22,
-    fontWeight: '500',
-  },
-  profileInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  profileLabel: {
-    flex: 1,
-    color: '#000000',
-    fontSize: 20,
-    fontWeight: '500',
-  },
-  profileValueBadge: {
-    borderWidth: 1,
-    borderColor: '#86DDE8',
-    borderRadius: 16,
-    paddingVertical: 5,
-    paddingHorizontal: 16,
-    minWidth: 90,
-    alignItems: 'center',
-  },
-  profileValueText: {
-    color: '#1A3C47',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  scansButton: {
-    alignSelf: 'center',
-    borderRadius: 20,
-    paddingVertical: 9,
-    paddingHorizontal: 24,
-    marginVertical: 20,
-  },
-  scansButtonText: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '600',
-  },
-  resultCard: {
-    borderWidth: 1,
-    borderColor: '#86DDE8',
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    marginBottom: 12,
-  },
-  resultTitle: {
-    color: '#00BBD3',
-    fontSize: 28,
-    fontWeight: '500',
-    marginBottom: 4,
-  },
-  resultText: {
-    color: '#1A3C47',
-    fontSize: 14,
-    fontWeight: '400',
-    marginBottom: 5,
-  },
-  resultDate: {
-    color: '#7CA0AC',
-    fontSize: 11,
-    fontWeight: '400',
-  },
-  editProfileButton: {
-    alignSelf: 'center',
-    marginTop: 8,
-  },
-  editProfileButtonText: {
-    color: '#00BBD3',
-    fontSize: 15,
-    fontWeight: '500',
-
-  },
   bottomWrapper: {
      marginHorizontal: 0,
     marginBottom: 0,
@@ -503,7 +267,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-     outlineStyle: 'none',
+    outlineStyle: 'none',
   },
   navItemCenter: {
     width: 52,
@@ -516,4 +280,4 @@ const styles = StyleSheet.create({
     borderWidth: 2,
      borderColor: '#ffffff',
   },
-});
+});
