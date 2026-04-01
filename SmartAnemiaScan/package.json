@@ -22,7 +22,9 @@
     "react-native-responsive-screen": "^1.4.2",
     "react-native-svg": "^15.15.3",
     "react-native-svg-transformer": "^1.5.3",
-    "react-native-web": "^0.21.0"
+    "react-native-web": "^0.21.0",
+    "expo-camera": "~17.0.10",
+    "expo-image-picker": "~17.0.10"
   },
   "private": true,
   "devDependencies": {
