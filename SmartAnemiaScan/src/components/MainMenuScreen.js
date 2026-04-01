@@ -1,12 +1,18 @@
-import React, { useMemo, useRef, useState } from 'react';
-import { SafeAreaView, View, Text, StyleSheet, TouchableOpacity, StatusBar, TextInput, Modal, Animated, PanResponder } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { SafeAreaView, View, Text, StyleSheet, TouchableOpacity, StatusBar, TextInput, Modal, Animated, PanResponder, Alert, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 import { Feather } from '@expo/vector-icons';
 import Messages from '../assets/Messages.svg';
 import ButtonShape from '../assets/ButtonShape.svg';
 import UserProfile from '../assets/UserProfile.svg';
 import Vector from '../assets/Vector.svg';
 import Group95 from '../assets/Group95.svg';
+
+
+const SCAN_UPLOAD_URL = 'https://api-anemiascan.ru/scalar/';
+
 const TABS = [
   {
     key: 'messages',
@@ -63,6 +69,10 @@ export default function MainMenuScreen() {
   const [age, setAge] = useState('26');
   const [isProfileSaved, setIsProfileSaved] = useState(false);
   const [isScanGuideVisible, setIsScanGuideVisible] = useState(false);
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const [isUploading, setIsUploading] = useState(false);
+  const [scanStatusText, setScanStatusText] = useState('');
+  const cameraRef = useRef(null);
   const activeTitle = useMemo(() => {
     const tab = TABS.find((item) => item.key === activeTab);
     return tab ? tab.title : '';
@@ -70,6 +80,104 @@ export default function MainMenuScreen() {
   const isProfileTab = activeTab === 'profile';
   const isScanTab = activeTab === 'scan';
   const guideSheetTranslateY = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const ensureCameraPermission = async () => {
+      if (!cameraPermission?.granted) {
+        await requestCameraPermission();
+      }
+    };
+
+    if (isScanTab) {
+      ensureCameraPermission();
+    }
+  }, [isScanTab, cameraPermission?.granted, requestCameraPermission]);
+
+  const uploadEyePhoto = async (photoUri, source = 'camera') => {
+    const fileName = photoUri.split('/').pop() || `eye-${Date.now()}.jpg`;
+    const fileType = fileName.includes('.') ? `image/${fileName.split('.').pop()}` : 'image/jpeg';
+    const formData = new FormData();
+
+    formData.append('eyeImage', {
+      uri: photoUri,
+      name: fileName,
+      type: fileType,
+    });
+    formData.append('source', source);
+
+    const response = await fetch(SCAN_UPLOAD_URL, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Upload failed with status ${response.status}`);
+    }
+
+    return response.json().catch(() => ({}));
+  };
+
+  const handleCapturePhoto = async () => {
+    if (!cameraPermission?.granted) {
+      Alert.alert('Camera access required', 'Please allow camera permission to take a scan photo.');
+      return;
+    }
+
+    if (!cameraRef.current || isUploading) {
+      return;
+    }
+
+    setIsUploading(true);
+    setScanStatusText('Capturing photo...');
+    try {
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.8 });
+      if (!photo?.uri) {
+        throw new Error('Could not capture photo.');
+      }
+
+      setScanStatusText('Uploading photo...');
+      await uploadEyePhoto(photo.uri, 'camera');
+      setScanStatusText('Scan uploaded successfully.');
+    } catch (error) {
+      setScanStatusText('Failed to upload scan. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handlePickFromGallery = async () => {
+    if (isUploading) {
+      return;
+    }
+
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Gallery access required', 'Please allow gallery permission to select an image.');
+      return;
+    }
+
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.8,
+      });
+
+      if (result.canceled || !result.assets?.length) {
+        return;
+      }
+
+      setIsUploading(true);
+      setScanStatusText('Uploading photo...');
+      await uploadEyePhoto(result.assets[0].uri, 'gallery');
+      setScanStatusText('Gallery image uploaded successfully.');
+    } catch (error) {
+      setScanStatusText('Failed to upload image. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const closeGuideSheet = () => {
     Animated.timing(guideSheetTranslateY, {
       toValue: 420,
@@ -219,6 +327,18 @@ const renderHelpCenterContent = () => (
   const renderScanContent = () => (
     <View style={styles.scanContainer}>
       <View style={styles.scanPreview}>
+        {cameraPermission?.granted ? (
+          <CameraView
+            ref={cameraRef}
+            style={StyleSheet.absoluteFillObject}
+            facing="back"
+            ratio="16:9"
+          />
+        ) : (
+          <View style={styles.cameraFallback}>
+            <Text style={styles.scanHintText}>Camera permission is needed to use live scan.</Text>
+          </View>
+        )}
         <View style={styles.scanOverlay} />
         <TouchableOpacity
           style={styles.scanBackButton}
@@ -235,6 +355,7 @@ const renderHelpCenterContent = () => (
           <View style={[styles.scanCorner, styles.scanCornerBottomRight]} />
         </View>
         <Text style={styles.scanHintText}>Place eye and lower eyelid inside the frame</Text>
+        {scanStatusText ? <Text style={styles.scanStatusText}>{scanStatusText}</Text> : null}
       </View>
 
       <View style={styles.scanControls}>
@@ -244,13 +365,13 @@ const renderHelpCenterContent = () => (
         </TouchableOpacity>
 
         <View style={styles.captureRow}>
-          <TouchableOpacity style={styles.galleryButton} activeOpacity={0.9}>
+          <TouchableOpacity style={styles.galleryButton} activeOpacity={0.9} onPress={handlePickFromGallery}>
             <Feather name="image" size={22} color="#FFFFFF" />
           </TouchableOpacity>
 
-          <TouchableOpacity activeOpacity={0.9} onPress={() => setIsScanGuideVisible(true)}>
+          <TouchableOpacity activeOpacity={0.9} onPress={handleCapturePhoto}>
             <LinearGradient colors={['#33E4DB', '#00BBD3']} style={styles.captureButton}>
-              <View style={styles.captureButtonInner} />
+              {isUploading ? <ActivityIndicator size="large" color="#FFFFFF" /> : <View style={styles.captureButtonInner} />}
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -299,22 +420,24 @@ const renderHelpCenterContent = () => (
 
       {!isScanTab ? (
         <View style={styles.bottomWrapper}>
-          {TABS.map((tab) => {
-            const isActive = tab.key === activeTab;
-            const isCenterTab = tab.key === 'scan';
-            
-            return (
-              <TouchableOpacity
-                key={tab.key}
-                 style={[styles.navItem, isCenterTab && styles.navItemCenter, isActive && styles.navItemActive]}
-                onPress={() => setActiveTab(tab.key)}
-                activeOpacity={0.8}
-              >
-               {tab.icon({ color: '#00BBD3', size: isCenterTab ? 36 : 23 })}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        { 
+        TABS.map((tab) => {
+          const isActive = tab.key === activeTab;
+          const isCenterTab = tab.key === 'scan';
+
+          return (
+            <TouchableOpacity
+              key={tab.key}
+              style={[styles.navItem, isCenterTab && styles.navItemCenter, isActive && styles.navItemActive]}
+              onPress={() => setActiveTab(tab.key)}
+              activeOpacity={0.8}
+            >
+             {tab.icon({ color: '#00BBD3', size: isCenterTab ? 36 : 23 })}
+            </TouchableOpacity>
+          );
+        })
+        }
+      </View>
       ) : null}
 
       <Modal
@@ -427,6 +550,13 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.26)',
   },
+  cameraFallback: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#4E4E4E',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
   scanBackButton: {
     position: 'absolute',
     top: 28,
@@ -487,6 +617,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     paddingHorizontal: 22,
+  },
+  scanStatusText: {
+    position: 'absolute',
+    bottom: 172,
+    color: '#E9F6FE',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+    paddingHorizontal: 26,
   },
   scanControls: {
     position: 'absolute',

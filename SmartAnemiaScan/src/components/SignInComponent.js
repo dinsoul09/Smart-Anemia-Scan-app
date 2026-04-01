@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+
 import {
   SafeAreaView,
   View,
@@ -12,18 +13,51 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import ForgotPasswordShell from './ForgotPasswordShell';
 import ForgotPasswordStepContent from './ForgotPasswordStepContent';
+import ErrorModal from '../modals/ErrorModal/ErrorModal';
+import SuccessModal from '../modals/SuccessModal/SuccessModal';
+import { loginUser, sendEmailCode, verifyRecoveryCode, resetPassword } from '../api/authApi';
+
 export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
+
+  const [isErrorModalVisible, setIsErrorModalVisible] = useState(false);
+  const [emailError, setEmailError] = useState(false);
   const [passwordHidden, setPasswordHidden] = useState(true);
-    const [screenMode, setScreenMode] = useState('login');
+  const [codeError, setCodeError] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [screenMode, setScreenMode] = useState('login');
   const [recoveryStep, setRecoveryStep] = useState('email');
   const [email, setEmail] = useState('');
-  const [emailError, setEmailError] = useState(false);
+  const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
-  const [secondsLeft, setSecondsLeft] = useState(20);
-  const [codeError, setCodeError] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [errorModalMessage, setErrorModalMessage] = useState('');
+  const [secondsLeft, setSecondsLeft] = useState(20);
 
+  const [isSuccessModalVisible, setIsSuccessModalVisible] = useState(false);
+  const [successModalMessage, setSuccessModalMessage] = useState('');
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      setErrorModalMessage('Пожалуйста, заполните все поля для входа.');
+      setIsErrorModalVisible(true);
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const userData = await loginUser(email, password);
+      console.log('Успешный вход!', userData);
+
+      setSuccessModalMessage('Вы успешно вошли в систему!');
+      setIsSuccessModalVisible(true);
+    } catch (err) {
+      setErrorModalMessage(err.message);
+      setIsErrorModalVisible(true);
+    } finally {
+      setLoading(false);
+    }
+  };
   useEffect(() => {
     if (screenMode !== 'forgot' || recoveryStep !== 'code' || secondsLeft <= 0) {
       return undefined;
@@ -68,7 +102,7 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
     setScreenMode('login');
   };
 
-  const handleSendRecovery = () => {
+  const handleSendRecovery = async () => {
     if (recoveryStep === 'email') {
       const isEmailValid = /^\S+@\S+\.\S+$/.test(email.trim());
 
@@ -77,10 +111,19 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
         return;
       }
 
-      setEmailError(false);
-      setRecoveryStep('code');
-      setSecondsLeft(20);
-      setCodeError(false);
+      setLoading(true);
+      try {
+        await sendEmailCode(email);
+        setEmailError(false);
+        setRecoveryStep('code');
+        setSecondsLeft(60); // Standard 1 min reset
+        setCodeError(false);
+      } catch (err) {
+        setErrorModalMessage('Failed to send verification code. Please try again.');
+        setIsErrorModalVisible(true);
+      } finally {
+        setLoading(false);
+      }
       return;
     }
 
@@ -90,17 +133,58 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
         return;
       }
 
-      setCodeError(false);
-      setRecoveryStep('reset');
+      setLoading(true);
+      try {
+        const isValid = await verifyRecoveryCode(email, code);
+        if (isValid) {
+          setCodeError(false);
+          setRecoveryStep('reset');
+        } else {
+          setCodeError(true);
+        }
+      } catch (err) {
+        setCodeError(true);
+        setErrorModalMessage('Invalid or expired code. Please try again.');
+        setIsErrorModalVisible(true);
+      } finally {
+        setLoading(false);
+      }
       return;
     }
 
-    setScreenMode('login');
-    setRecoveryStep('email');
-    setEmailError(false);
-    setCode('');
-    setNewPassword('');
-    setConfirmPassword('');
+    if (recoveryStep === 'reset') {
+      if (newPassword !== confirmPassword) {
+        setErrorModalMessage('Passwords do not match.');
+        setIsErrorModalVisible(true);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        await resetPassword({
+          email: email,
+          code: code,
+          newPassword: newPassword,
+          confirmPassword: confirmPassword
+        });
+
+        setSuccessModalMessage('Your password has been reset successfully!');
+        setIsSuccessModalVisible(true);
+        
+        // After success, we go back to login
+        setScreenMode('login');
+        setRecoveryStep('email');
+        setNewPassword('');
+        setConfirmPassword('');
+        setCode('');
+      } catch (err) {
+        const detail = err.response?.data?.detail || 'Failed to update password. Please try again.';
+        setErrorModalMessage(detail);
+        setIsErrorModalVisible(true);
+      } finally {
+        setLoading(false);
+      }
+    }
   };
 
   const recoveryTitle = recoveryStep === 'reset' ? '' : recoveryStep === 'code' ? 'Enter code' : 'Enter email';
@@ -112,7 +196,7 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
         ? `We\'ve sent a verification code to ${email || 'example@mail.com'}`
         : null;
 
-  const actionLabel = recoveryStep === 'email' ? 'Send code' : recoveryStep === 'code' ? 'Verify code' : 'Create New Password';
+  const actionLabel = loading ? 'Processing...' : (recoveryStep === 'email' ? 'Send code' : recoveryStep === 'code' ? 'Verify code' : 'Create New Password');
 
   const bottomNote = recoveryStep === 'code' ? `Send code again  ${countdownLabel}` : null;
 
@@ -127,7 +211,7 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
           bottomNote={bottomNote}
           actionLabel={actionLabel}
           onBack={handleRecoveryBack}
-          onAction={handleSendRecovery}
+          onAction={loading ? null : handleSendRecovery}
         >
           <ForgotPasswordStepContent
             step={recoveryStep}
@@ -172,6 +256,8 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
         <Text style={styles.label}>Email or Mobile Number</Text>
         
         <TextInput
+          value={email}
+          onChangeText={setEmail}
           placeholder="example@example.com"
           placeholderTextColor="#00BCD4"
           style={styles.input}
@@ -182,6 +268,8 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
         <Text style={[styles.label, styles.passwordLabel]}>Password</Text>
         <View style={styles.passwordWrapper}>
           <TextInput
+            value={password}
+            onChangeText={setPassword}
             placeholder="************"
             placeholderTextColor="#00BCD4"
             style={styles.passwordInput}
@@ -197,9 +285,15 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
          <Text style={styles.forgot}>Forget Password</Text>
          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.loginOuter} onPress={onLoginSuccess}>
+        <TouchableOpacity 
+          style={styles.loginOuter} 
+          onPress={handleLogin}
+          disabled={loading}
+        >
           <LinearGradient colors={['#33E4DB', '#00BBD3']} style={styles.loginButton}>
-            <Text style={styles.loginText}>Log In</Text>
+            <Text style={styles.loginText}>
+              {loading ? 'Signing in...' : 'Sign In'}
+            </Text>
           </LinearGradient>
         </TouchableOpacity>
 
@@ -218,6 +312,19 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
           </TouchableOpacity>
         </View>
       </View>
+      <ErrorModal
+        visible={isErrorModalVisible} 
+        errorMessage={errorModalMessage} 
+        onClose={() => setIsErrorModalVisible(false)} 
+      />
+      <SuccessModal
+        visible={isSuccessModalVisible} 
+        message={successModalMessage} 
+        onClose={() => {
+          setIsSuccessModalVisible(false);
+          if (onLoginSuccess) onLoginSuccess(); 
+        }} 
+      />
     </SafeAreaView>
   );
 }
