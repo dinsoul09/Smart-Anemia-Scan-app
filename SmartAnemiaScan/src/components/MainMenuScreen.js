@@ -1,16 +1,18 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { SafeAreaView, View, Text, StyleSheet, TouchableOpacity, StatusBar, TextInput, Modal, Animated, PanResponder, Alert, ActivityIndicator } from 'react-native';
+import { SafeAreaView, View, Text, StyleSheet, TouchableOpacity, StatusBar, TextInput, Modal, Animated, PanResponder, Alert, ActivityIndicator, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
+import * as SecureStore from 'expo-secure-store';
 import { Feather } from '@expo/vector-icons';
 import Messages from '../assets/Messages.svg';
 import ButtonShape from '../assets/ButtonShape.svg';
 import UserProfile from '../assets/UserProfile.svg';
 import Vector from '../assets/Vector.svg';
 import Group95 from '../assets/Group95.svg';
+import { uploadAnemiaPhoto } from '../api/anemiaApi';
 
-const SCAN_UPLOAD_URL = 'https://api-anemiascan.ru/scalar/';
+
 
 const TABS = [
   {
@@ -92,29 +94,21 @@ export default function MainMenuScreen() {
     }
   }, [isScanTab, cameraPermission?.granted, requestCameraPermission]);
 
-  const uploadEyePhoto = async (photoUri, source = 'camera') => {
-    const fileName = photoUri.split('/').pop() || `eye-${Date.now()}.jpg`;
-    const fileType = fileName.includes('.') ? `image/${fileName.split('.').pop()}` : 'image/jpeg';
-    const formData = new FormData();
+  const uploadEyePhoto = async (photoUri) => {
+  let token = null;
 
-    formData.append('eyeImage', {
-      uri: photoUri,
-      name: fileName,
-      type: fileType,
-    });
-    formData.append('source', source);
+  if (Platform.OS === 'web') {
+    token = localStorage.getItem('userToken');
+  } else {
+    token = await SecureStore.getItemAsync('userToken');
+  }
 
-    const response = await fetch(SCAN_UPLOAD_URL, {
-      method: 'POST',
-      body: formData,
-    });
+  if (!token) {
+    throw new Error('User token not found');
+  }
 
-    if (!response.ok) {
-      throw new Error(`Upload failed with status ${response.status}`);
-    }
-
-    return response.json().catch(() => ({}));
-  };
+  return uploadAnemiaPhoto(token, photoUri);
+};
 
   const handleCapturePhoto = async () => {
     if (!cameraPermission?.granted) {
@@ -135,7 +129,7 @@ export default function MainMenuScreen() {
       }
 
       setScanStatusText('Uploading photo...');
-      await uploadEyePhoto(photo.uri, 'camera');
+      await uploadEyePhoto(photo.uri);
       setScanStatusText('Scan uploaded successfully.');
     } catch (error) {
       setScanStatusText('Failed to upload scan. Please try again.');
@@ -168,7 +162,7 @@ export default function MainMenuScreen() {
 
       setIsUploading(true);
       setScanStatusText('Uploading photo...');
-      await uploadEyePhoto(result.assets[0].uri, 'gallery');
+      await uploadEyePhoto(result.assets[0].uri);
       setScanStatusText('Gallery image uploaded successfully.');
     } catch (error) {
       setScanStatusText('Failed to upload image. Please try again.');
