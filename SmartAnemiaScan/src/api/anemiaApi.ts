@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { Platform } from 'react-native';
 
 export const uploadAnemiaPhoto = async (token: string, photoUri: string) => {
   const fileName = photoUri.split('/').pop() || `eye-${Date.now()}.jpg`;
@@ -11,18 +12,27 @@ export const uploadAnemiaPhoto = async (token: string, photoUri: string) => {
 
   const formData = new FormData();
 
-  formData.append('ImageData', {
-    uri: photoUri,
-    name: fileName,
-    type: fileType,
-  } as any);
+  if (Platform.OS === 'web') {
+    // On web, convert the URI (data URL or blob URL) to a File object
+    const response = await fetch(photoUri);
+    const blob = await response.blob();
+    const file = new File([blob], fileName, { type: fileType });
+    formData.append('ImageData', file);
+  } else {
+    // On native (iOS/Android), use the RN-style object
+    formData.append('ImageData', {
+      uri: photoUri,
+      name: fileName,
+      type: fileType,
+    } as any);
+  }
 
-  const response = await axios.post('/Analysis/anemia/prediction', formData, {
+  const res = await axios.post('/Analysis/anemia/prediction', formData, {
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'multipart/form-data',
     },
   });
 
-  return response.data;
-};
+  return res.data;
+};
