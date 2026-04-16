@@ -29,7 +29,7 @@ export interface ProfileInfo {
   email: string | null;
   fullName: string | null;
   birthDate: string | null;
-  sex?: Sex | null;
+  sex?: string | null;
   age?: number | null;
   createdAt: string;
   updatedAt: string;
@@ -44,7 +44,7 @@ export interface UpdateProfileDto {
   email?: string | null;
   fullName?: string | null;
   birthDate?: string | null;
-  sex?: Sex | null;
+  sex?: string | null;
   age?: number | null;
   password?: string | null;
   confirmPassword?: string | null;
@@ -55,6 +55,8 @@ export interface UpdateProfileDto {
  * @param token - Authorization Bearer token
  */
 export const getProfileInfo = async (token: string): Promise<ProfileResponse> => {
+  const API_URL = 'https://api-anemiascan.ru';
+  axios.defaults.baseURL = API_URL;
   try {
     const response = await axios.get('/Profile/info', {
       headers: {
@@ -74,6 +76,8 @@ export const getProfileInfo = async (token: string): Promise<ProfileResponse> =>
  * @param data - Profile update data
  */
 export const updateProfile = async (token: string, data: UpdateProfileDto) => {
+  const API_URL = 'https://api-anemiascan.ru';
+  axios.defaults.baseURL = API_URL;
   try {
     const response = await axios.patch('/Profile', data, {
       headers: {

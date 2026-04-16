@@ -12,10 +12,11 @@ interface ProfileViewProps {
 }
 
 const ProfileView: React.FC<ProfileViewProps> = ({ profile, onEdit }) => {
-  const getSexLabel = (sex: Sex | null | undefined) => {
-    if (sex === Sex.Male) return 'Male';
-    if (sex === Sex.Female) return 'Female';
-    return '-';
+  const getSexLabel = (sex: string | null | undefined) => {
+    console.log(sex);
+    if (sex === '0') return 'Male';
+    if (sex === '1') return 'Female';
+    return sex;
   };
 
   return (
