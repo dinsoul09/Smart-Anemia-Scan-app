@@ -24,14 +24,14 @@ const ProfileEdit: React.FC<ProfileEditProps> = ({ profile, onSave, onCancel, lo
   const [fullName, setFullName] = useState(profile?.fullName || '');
   const [birthDate, setBirthDate] = useState(profile?.birthDate || '');
   const [age, setAge] = useState(profile?.age?.toString() || '');
-  const [sex, setSex] = useState<Sex | null>(profile?.sex ?? null);
+  const [sex, setSex] = useState<string | null>(profile?.sex ?? null);
 
   const handleSave = async () => {
     const updatedData: UpdateProfileDto = {
       fullName,
       birthDate,
       age: age ? parseInt(age, 10) : null,
-      sex,
+      sex: sex,
     };
     await onSave(updatedData);
   };
@@ -83,30 +83,30 @@ const ProfileEdit: React.FC<ProfileEditProps> = ({ profile, onSave, onCancel, lo
             </View>
             <View style={styles.sexSelector}>
               <TouchableOpacity
-                style={[styles.sexOption, sex === Sex.Male && styles.sexOptionActive]}
-                onPress={() => setSex(Sex.Male)}
+                style={[styles.sexOption, sex === '0' && styles.sexOptionActive]}
+                onPress={() => setSex('0')}
                 activeOpacity={0.7}
               >
                 <Feather
                   name="shield"
                   size={14}
-                  color={sex === Sex.Male ? '#FFFFFF' : '#00BBD3'}
+                  color={sex === '0' ? '#FFFFFF' : '#00BBD3'}
                   style={styles.sexIcon}
                 />
-                <Text style={[styles.sexText, sex === Sex.Male && styles.sexTextActive]}>Male</Text>
+                <Text style={[styles.sexText, sex === '0' && styles.sexTextActive]}>Male</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.sexOption, sex === Sex.Female && styles.sexOptionActive]}
-                onPress={() => setSex(Sex.Female)}
+                style={[styles.sexOption, sex === '1' && styles.sexOptionActive]}
+                onPress={() => setSex('1')}
                 activeOpacity={0.7}
               >
                 <Feather
                   name="heart"
                   size={14}
-                  color={sex === Sex.Female ? '#FFFFFF' : '#00BBD3'}
+                  color={sex === '1' ? '#FFFFFF' : '#00BBD3'}
                   style={styles.sexIcon}
                 />
-                <Text style={[styles.sexText, sex === Sex.Female && styles.sexTextActive]}>Female</Text>
+                <Text style={[styles.sexText, sex === '1' && styles.sexTextActive]}>Female</Text>
               </TouchableOpacity>
             </View>
           </View>
