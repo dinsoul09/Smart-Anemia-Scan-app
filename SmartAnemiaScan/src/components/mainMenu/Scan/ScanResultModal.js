@@ -1,0 +1,317 @@
+import React, { useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Animated, PanResponder, Dimensions } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+export default function ScanResultModal({ visible, onClose, result }) {
+  const resultSheetTranslateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.spring(resultSheetTranslateY, {
+        toValue: 0,
+        useNativeDriver: true,
+        damping: 20,
+        stiffness: 90,
+      }).start();
+    }
+  }, [visible]);
+
+  const closeResultSheet = () => {
+    Animated.timing(resultSheetTranslateY, {
+      toValue: SCREEN_HEIGHT,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(() => {
+      onClose();
+    });
+  };
+
+  const resultSheetPanResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 6,
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy > 0) {
+          resultSheetTranslateY.setValue(gestureState.dy);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 120 || gestureState.vy > 1) {
+          closeResultSheet();
+        } else {
+          Animated.spring(resultSheetTranslateY, {
+            toValue: 0,
+            useNativeDriver: true,
+            bounciness: 0,
+          }).start();
+        }
+      },
+    }),
+  ).current;
+
+  if (!result) return null;
+
+  const { sick, confidence, analyseDate } = result;
+  const isAnemia = sick.toLowerCase() === 'anemia';
+  const percentage = (confidence * 100).toFixed(1);
+  
+  // Color logic
+  let statusColor = '#4CAF50'; // Green
+  let statusIcon = 'check-circle';
+  let statusText = 'Low Risk / Healthy';
+
+  if (isAnemia) {
+    if (confidence > 0.7) {
+      statusColor = '#FF3B30'; // Red
+      statusIcon = 'alert-circle';
+      statusText = 'High Probability';
+    } else if (confidence >= 0.4) {
+      statusColor = '#FFCC00'; // Yellow
+      statusIcon = 'alert-triangle';
+      statusText = 'Moderate Probability';
+    } else {
+      statusColor = '#4CAF50'; // Green (Anemia label but low confidence)
+      statusIcon = 'check-circle';
+      statusText = 'Low Probability';
+    }
+  }
+
+  const formattedDate = new Date(analyseDate).toLocaleString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      onRequestClose={closeResultSheet}
+    >
+      <View style={styles.backdrop}>
+        <TouchableOpacity style={styles.backdropPress} activeOpacity={1} onPress={closeResultSheet} />
+        <Animated.View
+          style={[styles.sheet, { transform: [{ translateY: resultSheetTranslateY }] }]}
+          {...resultSheetPanResponder.panHandlers}
+        >
+          <View style={styles.handle} />
+          
+          <Text style={styles.title}>Scan Results</Text>
+
+          <View style={styles.resultCard}>
+            <View style={[styles.statusHeader, { backgroundColor: statusColor + '15' }]}>
+               <Feather name={statusIcon} size={28} color={statusColor} />
+               <View>
+                 <Text style={[styles.statusLabel, { color: statusColor }]}>{sick.toUpperCase()}</Text>
+                 <Text style={styles.statusSubtext}>{statusText}</Text>
+               </View>
+            </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.detailRow}>
+              <View style={styles.detailItem}>
+                <Text style={styles.detailLabel}>Probability</Text>
+                <Text style={[styles.detailValue, { color: statusColor }]}>{percentage}%</Text>
+              </View>
+              <View style={styles.verticalDivider} />
+              <View style={styles.detailItem}>
+                <Text style={styles.detailLabel}>Scan Date</Text>
+                <Text style={styles.detailValueSmall}>{formattedDate}</Text>
+              </View>
+            </View>
+
+            <View style={styles.progressBarContainer}>
+              <View style={styles.progressBarBg}>
+                <Animated.View 
+                  style={[
+                    styles.progressBarFill, 
+                    { width: `${percentage}%`, backgroundColor: statusColor }
+                  ]} 
+                />
+              </View>
+              <View style={styles.progressLabels}>
+                <Text style={styles.progressMarker}>0%</Text>
+                <Text style={styles.progressMarker}>50%</Text>
+                <Text style={styles.progressMarker}>100%</Text>
+              </View>
+            </View>
+          </View>
+
+          <Text style={styles.disclaimer}>
+            * This result is generated by an AI model and is for informational purposes only. Please consult a medical professional for an accurate diagnosis.
+          </Text>
+
+          <TouchableOpacity style={styles.closeButton} activeOpacity={0.8} onPress={closeResultSheet}>
+            <LinearGradient
+              colors={['#00BBD3', '#0097A7']}
+              style={styles.gradientButton}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <Text style={styles.closeButtonText}>Done</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+  },
+  backdropPress: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  sheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingTop: 12,
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+    minHeight: 480,
+  },
+  handle: {
+    width: 60,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#E0E0E0',
+    alignSelf: 'center',
+    marginBottom: 24,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#1A1A1A',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  resultCard: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+    overflow: 'hidden',
+    marginBottom: 24,
+  },
+  statusHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    gap: 16,
+  },
+  statusLabel: {
+    fontSize: 20,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  statusSubtext: {
+    fontSize: 14,
+    color: '#6C757D',
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E9ECEF',
+    marginHorizontal: 20,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    padding: 20,
+    alignItems: 'center',
+  },
+  detailItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  verticalDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: '#E9ECEF',
+  },
+  detailLabel: {
+    fontSize: 12,
+    color: '#ADB5BD',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  detailValue: {
+    fontSize: 24,
+    fontWeight: '800',
+  },
+  detailValueSmall: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#343A40',
+  },
+  progressBarContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+  },
+  progressBarBg: {
+    height: 10,
+    backgroundColor: '#E9ECEF',
+    borderRadius: 5,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 5,
+  },
+  progressLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  progressMarker: {
+    fontSize: 10,
+    color: '#ADB5BD',
+    fontWeight: '600',
+  },
+  disclaimer: {
+    fontSize: 12,
+    color: '#9E9E9E',
+    textAlign: 'center',
+    fontStyle: 'italic',
+    lineHeight: 18,
+    marginBottom: 32,
+    paddingHorizontal: 10,
+  },
+  closeButton: {
+    width: '100%',
+    height: 56,
+    borderRadius: 16,
+    overflow: 'hidden',
+    elevation: 3,
+    shadowColor: '#00BBD3',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  gradientButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+});

@@ -271,9 +271,7 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
       <StatusBar barStyle="dark-content" backgroundColor="#F1F3F4" />
 
       <LinearGradient colors={['#33E4DB', '#00BBD3']} style={styles.header}>
-        <TouchableOpacity>
-          <Text style={styles.backArrow}>‹</Text>
-        </TouchableOpacity>
+        <View style={styles.headerSpacer} />
 
         <Text style={styles.headerTitle}>Log In</Text>
 
