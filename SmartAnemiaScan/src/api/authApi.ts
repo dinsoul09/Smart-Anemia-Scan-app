@@ -3,9 +3,20 @@ import axios from "axios";
 const API_URL = 'https://api-anemiascan.ru';
 axios.defaults.baseURL = API_URL;
 
+interface LoginResponse {
+  tokenRecord: {
+    accessToken: string;
+    refreshToken: string;
+  };
+}
+
+interface LoginError {
+  description: string;
+}
+
 export const loginUser = async (email, password) => {
   try {
-    const response = await axios.post('/Authorization/sign-in', {
+    const response = await axios.post<LoginResponse>('/Authorization/sign-in', {
       email: email,
       password: password
     }, {
@@ -14,9 +25,8 @@ export const loginUser = async (email, password) => {
       }
     });
     return response.data;
-  } catch (error) {
-    console.error("Login error", error);
-    throw error;
+  } catch (error: any) {
+    throw error.response.data;
   }
 };
 
