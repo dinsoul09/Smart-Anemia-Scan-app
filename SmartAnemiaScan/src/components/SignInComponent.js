@@ -53,37 +53,20 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
       const userData = await loginUser(email, password);
       console.log('Успешный вход!', userData);
 
-      // Save token for future API calls based on official schema: { tokenRecord: { accessToken: "..." } }
-      const token = userData?.tokenRecord?.accessToken || 
-                    userData?.tokenRecord?.token || 
-                    userData?.token || 
-                    userData?.accessToken;
-      
-      console.log('Attempting to save token. Extracted:', token ? 'YES' : 'NO');
-
-      if (!token && userData?.tokenRecord) {
-        console.log('Keys in tokenRecord:', Object.keys(userData.tokenRecord));
-      }
+      const token = userData?.tokenRecord?.accessToken
 
       if (token) {
         if (Platform.OS === 'web') {
           localStorage.setItem('userToken', token);
-          console.log('Token saved to localStorage (Web)');
         } else if (SecureStore.setItemAsync) {
           await SecureStore.setItemAsync('userToken', token);
-          console.log('Token saved to SecureStore (Native)');
         }
-      } else {
-        console.warn('Token not found in response. Full data:', userData);
       }
-
-
-
 
       setSuccessModalMessage('Вы успешно вошли в систему!');
       setIsSuccessModalVisible(true);
     } catch (err) {
-      setErrorModalMessage(err.message);
+      setErrorModalMessage(err.description);
       setIsErrorModalVisible(true);
     } finally {
       setLoading(false);
@@ -150,7 +133,7 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
         setSecondsLeft(60); // Standard 1 min reset
         setCodeError(false);
       } catch (err) {
-        setErrorModalMessage('Failed to send verification code. Please try again.');
+        setErrorModalMessage('Не удалось отправить код подтверждения. Попробуйте снова.');
         setIsErrorModalVisible(true);
       } finally {
         setLoading(false);
@@ -175,7 +158,7 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
         }
       } catch (err) {
         setCodeError(true);
-        setErrorModalMessage('Invalid or expired code. Please try again.');
+        setErrorModalMessage('Неверный или истекший код. Попробуйте снова.');
         setIsErrorModalVisible(true);
       } finally {
         setLoading(false);
@@ -184,12 +167,6 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
     }
 
     if (recoveryStep === 'reset') {
-      if (newPassword !== confirmPassword) {
-        setErrorModalMessage('Passwords do not match.');
-        setIsErrorModalVisible(true);
-        return;
-      }
-
       setLoading(true);
       try {
         await resetPassword({
@@ -199,7 +176,7 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
           confirmPassword: confirmPassword
         });
 
-        setSuccessModalMessage('Your password has been reset successfully!');
+        setSuccessModalMessage('Ваш пароль был успешно сброшен!');
         setIsSuccessModalVisible(true);
         
         // After success, we go back to login
@@ -209,7 +186,7 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
         setConfirmPassword('');
         setCode('');
       } catch (err) {
-        const detail = err.response?.data?.detail || 'Failed to update password. Please try again.';
+        const detail = err.response?.data?.errors["ConfirmPassword"][0] || 'Не удалось обновить пароль. Попробуйте снова.';
         setErrorModalMessage(detail);
         setIsErrorModalVisible(true);
       } finally {
@@ -218,18 +195,24 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
     }
   };
 
-  const recoveryTitle = recoveryStep === 'reset' ? '' : recoveryStep === 'code' ? 'Enter code' : 'Enter email';
+  const recoveryTitle = recoveryStep === 'reset' ? '' : recoveryStep === 'code' ? 'Введите код' : 'Введите email';
 
   const recoveryDescription =
     recoveryStep === 'email'
-      ? 'Enter your email address. We will send verification code there.'
+      ? 'Введите ваш адрес электронной почты. Мы отправим туда код подтверждения.'
       : recoveryStep === 'code'
-        ? `We\'ve sent a verification code to ${email || 'example@mail.com'}`
+        ? `Мы отправили код подтверждения на ${email || 'example@mail.com'}`
         : null;
 
-  const actionLabel = loading ? 'Processing...' : (recoveryStep === 'email' ? 'Send code' : recoveryStep === 'code' ? 'Verify code' : 'Create New Password');
+  const actionLabel = loading ? 'Processing...' : 
+    (recoveryStep === 'email' 
+      ? 'Отправить код' 
+      : recoveryStep === 'code' 
+        ? 'Проверить код'
+        : 'Обновить пароль');
 
-  const bottomNote = recoveryStep === 'code' ? `Send code again  ${countdownLabel}` : null;
+  const bottomNote = recoveryStep === 'code' 
+    ? `Отправить код снова  ${countdownLabel}` : null;
 
   if (screenMode === 'forgot') {
     return (
@@ -263,6 +246,11 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
             onConfirmPasswordChange={setConfirmPassword}
           />
         </ForgotPasswordShell>
+        <ErrorModal
+          visible={isErrorModalVisible} 
+          errorMessage={errorModalMessage} 
+          onClose={() => setIsErrorModalVisible(false)} 
+        />
       </SafeAreaView>
     );
   }
@@ -279,10 +267,10 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
       </LinearGradient>
 
       <View style={styles.content}>
-        <Text style={styles.welcome}>Welcome</Text>
-        <Text style={styles.subtitle}>Get ready to start scanning!</Text>
+        <Text style={styles.welcome}>Добро пожаловать</Text>
+        <Text style={styles.subtitle}>Начните сканирование!</Text>
 
-        <Text style={styles.label}>Email or Mobile Number</Text>
+        <Text style={styles.label}>Email или номер телефона</Text>
         
         <TextInput
           value={email}
@@ -294,7 +282,7 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
           autoCapitalize="none"
         />
 
-        <Text style={[styles.label, styles.passwordLabel]}>Password</Text>
+        <Text style={[styles.label, styles.passwordLabel]}>Пароль</Text>
         <View style={styles.passwordWrapper}>
           <TextInput
             value={password}
@@ -311,7 +299,7 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
         </View>
 
         <TouchableOpacity onPress={openForgotPassword}>
-         <Text style={styles.forgot}>Forget Password</Text>
+         <Text style={styles.forgot}>Забыли пароль?</Text>
          </TouchableOpacity>
 
         <TouchableOpacity 
@@ -321,12 +309,12 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
         >
           <LinearGradient colors={['#33E4DB', '#00BBD3']} style={styles.loginButton}>
             <Text style={styles.loginText}>
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? 'Вход...' : 'Войти'}
             </Text>
           </LinearGradient>
         </TouchableOpacity>
 
-        <Text style={styles.orText}>or sign up with</Text>
+        <Text style={styles.orText}>или войдите через</Text>
 
         <TouchableOpacity style={styles.googleCircle}>
           <LinearGradient colors={['#33E4DB', '#00BBD3']} style={styles.googleCircle}>
@@ -335,9 +323,9 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
         </TouchableOpacity>
 
         <View style={styles.signupRow}>
-          <Text style={styles.signupText}>Don’t have an account?</Text>
+          <Text style={styles.signupText}>Нет аккаунта?</Text>
           <TouchableOpacity onPress={onSignUpPress}>
-            <Text style={styles.signupLink}> Sign Up</Text>
+            <Text style={styles.signupLink}> Зарегистрироваться</Text>
           </TouchableOpacity>
         </View>
       </View>
