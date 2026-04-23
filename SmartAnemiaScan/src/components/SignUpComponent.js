@@ -9,9 +9,11 @@ import {
   TextInput,
   ScrollView,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { signUpUser, sendEmailCode } from '../api/authApi';
+import * as SecureStore from 'expo-secure-store';
+import { signUpUser, sendEmailCode, verifyRegistration } from '../api/authApi';
 import EmailVerificationStep from './EmailVerificationStep';
 import ErrorModal from '../modals/ErrorModal/ErrorModal';
 
@@ -34,30 +36,71 @@ export default function SignUpScreen({ onBackToLogin, onSuccess }) {
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
+  const isValidDate = (str) => {
+    const parts = str.split(/[\/\.\s]+/).filter(Boolean);
+    return parts.length === 3 && parts[2]?.length === 4;
+  };
+
   const handleNextStep = async () => {
-    // Basic validation
-    if (!formData.fullName || !formData.email || !formData.password) {
+    // Basic local validation
+    if (!formData.fullName || !formData.email || !formData.password || !formData.birthDate) {
       setErrorMessage('Please fill in all required fields.');
       setErrorVisible(true);
       return;
     }
 
-    // Try to send verification code before moving to verification step
+    if (!isValidDate(formData.birthDate)) {
+      setErrorMessage('Please enter a valid date of birth (DD / MM / YYYY).');
+      setErrorVisible(true);
+      return;
+    }
+
     setIsLoading(true);
     try {
-      await sendEmailCode(formData.email);
-      setStep('verification');
-    } catch (error) {
-      console.error('Send code error:', error);
-      const data = error.response?.data;
-      let detail = data?.detail || data?.title || data?.message || '';
+      // STEP 1 & 2: Pre-validate with backend and send the code
+      await verifyRegistration({
+        email: formData.email,
+        birthDate: formatDateToISO(formData.birthDate),
+        password: formData.password,
+        confirmPassword: formData.confirmPassword,
+      });
 
-      // Check for "email already taken/registered" error patterns
-      if (/already.*taken|already.*registered|already.*exists|already.*use/i.test(detail)) {
-        detail = 'This email is already registered. Please log in.';
-      } else if (!detail) {
-        detail = 'Failed to send verification code. Please try again.';
+      setStep('verification');
+
+    } catch (error) {
+      console.error('Registration validation error:', error);
+      const response = error?.response;
+      const status = response?.status;
+      const data = response?.data;
+
+      let detail = '';
+
+      // 400 — model validation errors (field-level or title)
+      if (status === 400) {
+        if (data?.errors && typeof data.errors === 'object') {
+          detail = Object.values(data.errors).flat().join('\n');
+        }
+        if (!detail) {
+          detail = data?.detail || data?.title || 'Invalid registration data.';
+        }
       }
+      // 409 — email already registered
+      else if (status === 409) {
+        detail = 'This email is already registered. Please log in.';
+      }
+      // Other errors (network, 500, etc.)
+      else {
+        detail = data?.detail || data?.title || data?.message
+          || 'Failed to validate registration. Please try again.';
+      }
+
+      // Translate common English error messages to Russian
+      detail = detail
+        .replace(/Email already registered/gi, 'Этот email уже зарегистрирован')
+        .replace(/Birth date cannot be in the future/gi, 'Дата рождения не может быть в будущем')
+        .replace(/Password must be at least (\d+) characters/gi, 'Пароль должен содержать не менее $1 символов')
+        .replace(/Passwords do not match/gi, 'Пароли не совпадают')
+        .replace(/Invalid email/gi, 'Неверный формат email');
 
       setErrorMessage(detail);
       setErrorVisible(true);
@@ -92,6 +135,16 @@ export default function SignUpScreen({ onBackToLogin, onSuccess }) {
       const result = await signUpUser(signUpParams);
       
       if (result) {
+        const token = result?.tokenRecord?.accessToken;
+        
+        if (token) {
+          if (Platform.OS === 'web') {
+            localStorage.setItem('userToken', token);
+          } else if (SecureStore.setItemAsync) {
+            await SecureStore.setItemAsync('userToken', token);
+          }
+        }
+        
         onSuccess();
       }
     } catch (error) {
