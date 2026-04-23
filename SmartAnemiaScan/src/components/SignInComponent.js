@@ -314,13 +314,7 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
           </LinearGradient>
         </TouchableOpacity>
 
-        <Text style={styles.orText}>или войдите через</Text>
 
-        <TouchableOpacity style={styles.googleCircle}>
-          <LinearGradient colors={['#33E4DB', '#00BBD3']} style={styles.googleCircle}>
-          <Text style={styles.googleText}>G</Text>
-          </LinearGradient>
-        </TouchableOpacity>
 
         <View style={styles.signupRow}>
           <Text style={styles.signupText}>Нет аккаунта?</Text>
@@ -447,26 +441,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '600',
   },
-  orText: {
-    marginTop: 52,
-    textAlign: 'center',
-    color: '#555',
-    fontSize: 14,
-  },
-  googleCircle: {
-    marginTop: 16,
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignSelf: 'center',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  googleText: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: '200',
-  },
+
    signupRow: {
     marginTop: 48,
      flexDirection: 'row',

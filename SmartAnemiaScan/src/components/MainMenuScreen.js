@@ -184,12 +184,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-     outlineStyle: 'none',
+    outlineStyle: 'none',
   },
   navItemCenter: {
     width: 52,
     height: 52,
     borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   navItemActive: {
     backgroundColor: '#FFFFFF',
