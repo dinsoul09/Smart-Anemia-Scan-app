@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { signUpUser } from '../api/authApi';
+import { signUpUser, sendEmailCode } from '../api/authApi';
 import EmailVerificationStep from './EmailVerificationStep';
 import ErrorModal from '../modals/ErrorModal/ErrorModal';
 
@@ -34,14 +34,36 @@ export default function SignUpScreen({ onBackToLogin, onSuccess }) {
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleNextStep = () => {
-    // Basic validation (can be improved)
+  const handleNextStep = async () => {
+    // Basic validation
     if (!formData.fullName || !formData.email || !formData.password) {
       setErrorMessage('Please fill in all required fields.');
       setErrorVisible(true);
       return;
     }
-    setStep('verification');
+
+    // Try to send verification code before moving to verification step
+    setIsLoading(true);
+    try {
+      await sendEmailCode(formData.email);
+      setStep('verification');
+    } catch (error) {
+      console.error('Send code error:', error);
+      const data = error.response?.data;
+      let detail = data?.detail || data?.title || data?.message || '';
+
+      // Check for "email already taken/registered" error patterns
+      if (/already.*taken|already.*registered|already.*exists|already.*use/i.test(detail)) {
+        detail = 'This email is already registered. Please log in.';
+      } else if (!detail) {
+        detail = 'Failed to send verification code. Please try again.';
+      }
+
+      setErrorMessage(detail);
+      setErrorVisible(true);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const formatDateToISO = (dateStr) => {
@@ -74,7 +96,38 @@ export default function SignUpScreen({ onBackToLogin, onSuccess }) {
       }
     } catch (error) {
       console.error("Registration error:", error);
-      const detail = error.response?.data?.detail || error.response?.data?.title || 'Registration failed. Please check your details and try again.';
+      const data = error.response?.data;
+
+      // Try to extract specific field validation errors
+      let detail = '';
+      if (data?.errors && typeof data.errors === 'object') {
+        const allErrors = Object.values(data.errors).flat();
+        if (allErrors.length > 0) {
+          detail = allErrors.join('\n');
+        }
+      }
+
+      if (!detail) {
+        detail = data?.detail || data?.title || data?.message || '';
+      }
+
+      // Translate common English error messages to Russian
+      if (!detail || detail === 'The verification code entered is incorrect or the code is being verified') {
+        detail = 'Указан неправильный код подтверждения или код истек';
+      } else {
+        detail = detail
+          .replace(/Password must be at least (\d+) characters/gi, 'Пароль должен содержать не менее $1 символов')
+          .replace(/Password must have at least one/gi, 'Пароль должен содержать хотя бы одну')
+          .replace(/uppercase letter/gi, 'заглавную букву')
+          .replace(/lowercase letter/gi, 'строчную букву')
+          .replace(/digit/gi, 'цифру')
+          .replace(/non alphanumeric character/gi, 'специальный символ')
+          .replace(/Email .* is already taken/gi, 'Этот email уже зарегистрирован')
+          .replace(/Invalid email/gi, 'Неверный формат email')
+          .replace(/is required/gi, 'обязательно для заполнения')
+          .replace(/Passwords do not match/gi, 'Пароли не совпадают');
+      }
+
       setErrorMessage(detail);
       setErrorVisible(true);
     } finally {
@@ -169,13 +222,7 @@ export default function SignUpScreen({ onBackToLogin, onSuccess }) {
               </LinearGradient>
             </TouchableOpacity>
 
-            <Text style={styles.orText}>or sign up with</Text>
 
-            <TouchableOpacity style={styles.googleCircle}>
-              <LinearGradient colors={['#33E4DB', '#00BBD3']} style={styles.googleCircle}>
-                <Text style={styles.googleText}>G</Text>
-              </LinearGradient>
-            </TouchableOpacity>
 
             <View style={styles.loginRow}>
               <Text style={styles.loginText}>already have an account?</Text>
@@ -287,26 +334,7 @@ container: {
     fontSize: 28,
     fontWeight: '600',
   },
-  orText: {
-    marginTop: 28,
-    textAlign: 'center',
-    color: '#555',
-    fontSize: 14,
-  },
-  googleCircle: {
-    marginTop: 16,
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignSelf: 'center',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  googleText: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: '200',
-  },
+
   loginRow: {
     marginTop: 42,
      flexDirection: 'row',

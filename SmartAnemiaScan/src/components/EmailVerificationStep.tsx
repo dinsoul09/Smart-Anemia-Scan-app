@@ -6,20 +6,26 @@ interface EmailVerificationStepProps {
   email: string;
   onCodeComplete: (code: string) => void;
   onBack: () => void;
+  errorMessage?: string;
 }
 
-const EmailVerificationStep: React.FC<EmailVerificationStepProps> = ({ email, onCodeComplete, onBack }) => {
+const EmailVerificationStep: React.FC<EmailVerificationStepProps> = ({ email, onCodeComplete, onBack, errorMessage }) => {
   const [code, setCode] = useState('');
   const [timer, setTimer] = useState(60);
   const [canResend, setCanResend] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const codeInputRef = useRef<TextInput>(null);
 
-  // Auto-send code on mount
+  // Reset code input when an error arrives so user can re-enter
   useEffect(() => {
-    handleSendCode();
-    
-    // Focus code input
+    if (errorMessage) {
+      setCode('');
+      setTimeout(() => codeInputRef.current?.focus(), 100);
+    }
+  }, [errorMessage]);
+
+  // Focus code input on mount (code is already sent from SignUpComponent)
+  useEffect(() => {
     const focusTimer = setTimeout(() => {
       codeInputRef.current?.focus();
     }, 500);
@@ -60,6 +66,8 @@ const EmailVerificationStep: React.FC<EmailVerificationStepProps> = ({ email, on
     }
   };
 
+  const hasError = !!errorMessage;
+
   const codeItems = Array.from({ length: 5 }, (_, index) => code[index] ?? '');
 
   return (
@@ -82,7 +90,7 @@ const EmailVerificationStep: React.FC<EmailVerificationStepProps> = ({ email, on
         {codeItems.map((item, index) => (
           <TouchableOpacity
             key={`code-${index}`}
-            style={styles.codeBox}
+            style={[styles.codeBox, hasError && styles.codeBoxError]}
             activeOpacity={0.9}
             onPress={() => codeInputRef.current?.focus()}
           >
@@ -90,6 +98,10 @@ const EmailVerificationStep: React.FC<EmailVerificationStepProps> = ({ email, on
           </TouchableOpacity>
         ))}
       </View>
+
+      {hasError && (
+        <Text style={styles.errorText}>{errorMessage}</Text>
+      )}
 
       <View style={styles.timerRow}>
         {canResend ? (
@@ -150,6 +162,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  codeBoxError: {
+    borderColor: '#E53935',
+    backgroundColor: '#FFF5F5',
+  },
+  errorText: {
+    color: '#E53935',
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 16,
+    marginTop: -10,
   },
   codeDigit: {
     fontSize: 30,
