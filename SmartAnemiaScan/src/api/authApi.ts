@@ -46,6 +46,20 @@ export const sendEmailCode = async (email: string) => {
   }
 };
 
+export interface VerifyRegistrationData {
+  email: string;
+  birthDate: string | null;
+  password: string;
+  confirmPassword: string;
+}
+
+export const verifyRegistration = async (data: VerifyRegistrationData): Promise<void> => {
+  // Throws on 400 / 409 — caller handles error display
+  await axios.post('/Authorization/email/verify-registration/', data, {
+    headers: { 'Content-Type': 'application/json' },
+  });
+};
+
 export interface SignUpData {
   email: string;
   emailCode: string;
