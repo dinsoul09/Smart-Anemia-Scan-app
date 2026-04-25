@@ -43,7 +43,7 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      setErrorModalMessage('Пожалуйста, заполните все поля для входа.');
+      setErrorModalMessage('Please fill in all fields to log in.');
       setIsErrorModalVisible(true);
       return;
     }
@@ -51,7 +51,7 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
     setLoading(true);
     try {
       const userData = await loginUser(email, password);
-      console.log('Успешный вход!', userData);
+      console.log('Successful login!', userData);
 
       const token = userData?.tokenRecord?.accessToken
 
@@ -63,7 +63,7 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
         }
       }
 
-      setSuccessModalMessage('Вы успешно вошли в систему!');
+      setSuccessModalMessage('You have successfully logged in!');
       setIsSuccessModalVisible(true);
     } catch (err) {
       setErrorModalMessage(err.description);
@@ -133,7 +133,7 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
         setSecondsLeft(60); // Standard 1 min reset
         setCodeError(false);
       } catch (err) {
-        setErrorModalMessage('Не удалось отправить код подтверждения. Попробуйте снова.');
+        setErrorModalMessage('Failed to send confirmation code. Please try again.');
         setIsErrorModalVisible(true);
       } finally {
         setLoading(false);
@@ -158,7 +158,7 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
         }
       } catch (err) {
         setCodeError(true);
-        setErrorModalMessage('Неверный или истекший код. Попробуйте снова.');
+        setErrorModalMessage('Invalid or expired code. Please try again.');
         setIsErrorModalVisible(true);
       } finally {
         setLoading(false);
@@ -176,7 +176,7 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
           confirmPassword: confirmPassword
         });
 
-        setSuccessModalMessage('Ваш пароль был успешно сброшен!');
+        setSuccessModalMessage('Your password has been successfully reset!');
         setIsSuccessModalVisible(true);
         
         // After success, we go back to login
@@ -186,7 +186,7 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
         setConfirmPassword('');
         setCode('');
       } catch (err) {
-        const detail = err.response?.data?.errors["ConfirmPassword"][0] || 'Не удалось обновить пароль. Попробуйте снова.';
+        const detail = err.response?.data?.errors["ConfirmPassword"][0] || 'Failed to update password. Please try again.';
         setErrorModalMessage(detail);
         setIsErrorModalVisible(true);
       } finally {
@@ -195,24 +195,24 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
     }
   };
 
-  const recoveryTitle = recoveryStep === 'reset' ? '' : recoveryStep === 'code' ? 'Введите код' : 'Введите email';
+  const recoveryTitle = recoveryStep === 'reset' ? '' : recoveryStep === 'code' ? 'Enter Code' : 'Enter Email';
 
   const recoveryDescription =
     recoveryStep === 'email'
-      ? 'Введите ваш адрес электронной почты. Мы отправим туда код подтверждения.'
+      ? 'Enter your email address. We will send a confirmation code there.'
       : recoveryStep === 'code'
-        ? `Мы отправили код подтверждения на ${email || 'example@mail.com'}`
+        ? `We sent a confirmation code to ${email || 'example@mail.com'}`
         : null;
 
   const actionLabel = loading ? 'Processing...' : 
     (recoveryStep === 'email' 
-      ? 'Отправить код' 
+      ? 'Send Code' 
       : recoveryStep === 'code' 
-        ? 'Проверить код'
-        : 'Обновить пароль');
+        ? 'Verify Code'
+        : 'Update Password');
 
   const bottomNote = recoveryStep === 'code' 
-    ? `Отправить код снова  ${countdownLabel}` : null;
+    ? `Send code again  ${countdownLabel}` : null;
 
   if (screenMode === 'forgot') {
     return (
@@ -267,10 +267,10 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
       </LinearGradient>
 
       <View style={styles.content}>
-        <Text style={styles.welcome}>Добро пожаловать</Text>
-        <Text style={styles.subtitle}>Начните сканирование!</Text>
+        <Text style={styles.welcome}>Welcome</Text>
+        <Text style={styles.subtitle}>Start scanning!</Text>
 
-        <Text style={styles.label}>Email или номер телефона</Text>
+        <Text style={styles.label}>Email or Phone Number</Text>
         
         <TextInput
           value={email}
@@ -282,7 +282,7 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
           autoCapitalize="none"
         />
 
-        <Text style={[styles.label, styles.passwordLabel]}>Пароль</Text>
+        <Text style={[styles.label, styles.passwordLabel]}>Password</Text>
         <View style={styles.passwordWrapper}>
           <TextInput
             value={password}
@@ -299,7 +299,7 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
         </View>
 
         <TouchableOpacity onPress={openForgotPassword}>
-         <Text style={styles.forgot}>Забыли пароль?</Text>
+         <Text style={styles.forgot}>Forgot Password?</Text>
          </TouchableOpacity>
 
         <TouchableOpacity 
@@ -309,7 +309,7 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
         >
           <LinearGradient colors={['#33E4DB', '#00BBD3']} style={styles.loginButton}>
             <Text style={styles.loginText}>
-              {loading ? 'Вход...' : 'Войти'}
+              {loading ? 'Logging in...' : 'Log In'}
             </Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -317,9 +317,9 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
 
 
         <View style={styles.signupRow}>
-          <Text style={styles.signupText}>Нет аккаунта?</Text>
+          <Text style={styles.signupText}>Don't have an account?</Text>
           <TouchableOpacity onPress={onSignUpPress}>
-            <Text style={styles.signupLink}> Зарегистрироваться</Text>
+            <Text style={styles.signupLink}> Sign Up</Text>
           </TouchableOpacity>
         </View>
       </View>

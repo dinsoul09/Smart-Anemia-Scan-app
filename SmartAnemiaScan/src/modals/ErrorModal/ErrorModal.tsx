@@ -11,10 +11,10 @@ const ErrorModal = ({ visible, errorMessage, onClose }) => {
     >
       <View style={styles.centeredView}>
         <View style={styles.modalView}>
-          <Text style={styles.title}>Ошибка</Text>
+          <Text style={styles.title}>Error</Text>
           <Text style={styles.message}>{errorMessage}</Text>
           <TouchableOpacity style={styles.button} onPress={onClose}>
-            <Text style={styles.buttonText}>Закрыть</Text>
+            <Text style={styles.buttonText}>Close</Text>
           </TouchableOpacity>
         </View>
       </View>
