@@ -21,8 +21,18 @@ interface ProfileEditProps {
 }
 
 const ProfileEdit: React.FC<ProfileEditProps> = ({ profile, onSave, onCancel, loading }) => {
+  const formatBirthDate = (dateString: string | null | undefined) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString.replace('Z', '');
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const [fullName, setFullName] = useState(profile?.fullName || '');
-  const [birthDate, setBirthDate] = useState(profile?.birthDate || '');
+  const [birthDate, setBirthDate] = useState(formatBirthDate(profile?.birthDate));
   const [age, setAge] = useState(profile?.age?.toString() || '');
   const [sex, setSex] = useState<string | null>(profile?.sex ?? null);
 
@@ -36,13 +46,26 @@ const ProfileEdit: React.FC<ProfileEditProps> = ({ profile, onSave, onCancel, lo
     await onSave(updatedData);
   };
 
+  const handleBirthDateChange = (text: string) => {
+    let cleaned = text.replace(/\D/g, '');
+    let formatted = cleaned;
+    if (cleaned.length > 4) {
+      formatted = cleaned.slice(0, 4) + '-' + cleaned.slice(4);
+    }
+    if (cleaned.length > 6) {
+      formatted = formatted.slice(0, 7) + '-' + cleaned.slice(6, 8);
+    }
+    setBirthDate(formatted);
+  };
+
   const renderInput = (
     label: string,
     value: string,
     onChangeText: (text: string) => void,
     placeholder: string,
     icon: React.ComponentProps<typeof Feather>['name'],
-    keyboardType: 'default' | 'numeric' = 'default'
+    keyboardType: 'default' | 'numeric' = 'default',
+    maxLength?: number
   ) => (
     <View style={styles.inputContainer}>
       <View style={styles.inputHeader}>
@@ -56,6 +79,7 @@ const ProfileEdit: React.FC<ProfileEditProps> = ({ profile, onSave, onCancel, lo
         placeholder={placeholder}
         placeholderTextColor="#B0CED9"
         keyboardType={keyboardType}
+        maxLength={maxLength}
       />
     </View>
   );
@@ -73,7 +97,7 @@ const ProfileEdit: React.FC<ProfileEditProps> = ({ profile, onSave, onCancel, lo
 
         <View style={styles.card}>
           {renderInput('Full Name', fullName, setFullName, 'Enter full name', 'user')}
-          {renderInput('Birth Date', birthDate, setBirthDate, 'YYYY-MM-DD', 'calendar')}
+          {renderInput('Birth Date', birthDate, handleBirthDateChange, 'YYYY-MM-DD', 'calendar', 'numeric', 10)}
           {renderInput('Age', age, (text) => setAge(text.replace(/[^0-9]/g, '')), 'Enter age', 'hash', 'numeric')}
 
           <View style={styles.inputContainer}>

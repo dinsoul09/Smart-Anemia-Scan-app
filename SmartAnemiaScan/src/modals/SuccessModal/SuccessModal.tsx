@@ -20,7 +20,7 @@ const SuccessModal = ({ visible, message, onClose }) => {
           <Text style={styles.title}>Success!</Text>
           <Text style={styles.message}>{message}</Text>
           
-          {/* Кнопка действия (например, "Continue") */}
+          {/* Action button (e.g., "Continue") */}
           <TouchableOpacity
             style={styles.button}
             onPress={onClose}
@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     minWidth: 150,
     alignItems: 'center',
-    // Легкая тень кнопки
+    // Light button shadow
     shadowColor: '#4CAF50',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.4,

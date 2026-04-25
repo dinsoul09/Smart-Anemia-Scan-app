@@ -94,13 +94,7 @@ export default function SignUpScreen({ onBackToLogin, onSuccess }) {
           || 'Failed to validate registration. Please try again.';
       }
 
-      // Translate common English error messages to Russian
-      detail = detail
-        .replace(/Email already registered/gi, 'Этот email уже зарегистрирован')
-        .replace(/Birth date cannot be in the future/gi, 'Дата рождения не может быть в будущем')
-        .replace(/Password must be at least (\d+) characters/gi, 'Пароль должен содержать не менее $1 символов')
-        .replace(/Passwords do not match/gi, 'Пароли не совпадают')
-        .replace(/Invalid email/gi, 'Неверный формат email');
+      // Error messages from the backend are already in English
 
       setErrorMessage(detail);
       setErrorVisible(true);
@@ -164,21 +158,9 @@ export default function SignUpScreen({ onBackToLogin, onSuccess }) {
         detail = data?.detail || data?.title || data?.message || '';
       }
 
-      // Translate common English error messages to Russian
+      // Format English error messages
       if (!detail || detail === 'The verification code entered is incorrect or the code is being verified') {
-        detail = 'Указан неправильный код подтверждения или код истек';
-      } else {
-        detail = detail
-          .replace(/Password must be at least (\d+) characters/gi, 'Пароль должен содержать не менее $1 символов')
-          .replace(/Password must have at least one/gi, 'Пароль должен содержать хотя бы одну')
-          .replace(/uppercase letter/gi, 'заглавную букву')
-          .replace(/lowercase letter/gi, 'строчную букву')
-          .replace(/digit/gi, 'цифру')
-          .replace(/non alphanumeric character/gi, 'специальный символ')
-          .replace(/Email .* is already taken/gi, 'Этот email уже зарегистрирован')
-          .replace(/Invalid email/gi, 'Неверный формат email')
-          .replace(/is required/gi, 'обязательно для заполнения')
-          .replace(/Passwords do not match/gi, 'Пароли не совпадают');
+        detail = 'Incorrect confirmation code or the code has expired';
       }
 
       setErrorMessage(detail);

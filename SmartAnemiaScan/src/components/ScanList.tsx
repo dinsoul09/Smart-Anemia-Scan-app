@@ -21,7 +21,7 @@ const ScanList: React.FC<ScanListProps> = ({ scans }) => {
     <View style={styles.container}>
       {scans.map((scan) => {
         const date = new Date(scan.scanDate);
-        const formattedDate = date.toLocaleDateString('ru-RU', {
+        const formattedDate = date.toLocaleDateString('en-US', {
           day: 'numeric',
           month: 'long',
           year: 'numeric'
