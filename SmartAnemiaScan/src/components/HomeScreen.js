@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
+import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import * as SecureStore from 'expo-secure-store';
 import { getProfileInfo } from '../api/ProfileApi';
 
@@ -81,6 +82,65 @@ export default function HomeScreen({ onStartScan }) {
       )
     : null;
 
+  // ── Streak helpers ──────────────────────────────────────────────────────
+  // Returns the Monday of the ISO week that contains `date`
+  const getWeekStart = (date) => {
+    const d = new Date(date);
+    const day = d.getDay(); // 0 Sun … 6 Sat
+    const diff = (day === 0 ? -6 : 1 - day); // shift to Monday
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + diff);
+    return d;
+  };
+
+  // Set of week-start timestamps that have at least one scan
+  const weeksWithScan = useMemo(() => {
+    const set = new Set();
+    scans.forEach((s) => set.add(getWeekStart(new Date(s.scanDate)).getTime()));
+    return set;
+  }, [scans]);
+
+  // Count consecutive weeks ending with the current week that have a scan
+  const streakWeeks = useMemo(() => {
+    let count = 0;
+    let weekStart = getWeekStart(new Date());
+    while (weeksWithScan.has(weekStart.getTime())) {
+      count += 1;
+      weekStart = new Date(weekStart.getTime() - 7 * 24 * 60 * 60 * 1000);
+    }
+    return count;
+  }, [weeksWithScan]);
+
+  // Next milestone in the series
+  const MILESTONES = [1, 4, 8, 12, 16, 26, 52];
+  const nextMilestone = MILESTONES.find((m) => m > streakWeeks) || 52;
+
+  // Progress towards next milestone (0–1)
+  const streakProgress = streakWeeks === 0 ? 0 : Math.min(streakWeeks / nextMilestone, 1);
+  const streakProgressPct = Math.round(streakProgress * 100);
+
+  // Which days of the CURRENT week (Mon=0 … Sun=6) have a scan
+  const thisWeekDays = useMemo(() => {
+    const today = new Date();
+    const monday = getWeekStart(today);
+    const sunday = new Date(monday.getTime() + 6 * 24 * 60 * 60 * 1000);
+    sunday.setHours(23, 59, 59, 999);
+    const active = new Set();
+    scans.forEach((s) => {
+      const d = new Date(s.scanDate);
+      if (d >= monday && d <= sunday) {
+        // day index: Mon=0 … Sun=6
+        const dow = d.getDay(); // 0 Sun … 6 Sat
+        active.add(dow === 0 ? 6 : dow - 1);
+      }
+    });
+    return active;
+  }, [scans]);
+
+  // SVG ring circumference
+  const RING_R = 40;
+  const CIRCUMFERENCE = 2 * Math.PI * RING_R;
+
   const formatRelativeDate = (dateString) => {
     if (!dateString) return '—';
     const date = new Date(dateString);
@@ -134,6 +194,99 @@ export default function HomeScreen({ onStartScan }) {
             <Text style={styles.beginScanButtonText}>Begin Scan Now</Text>
           </TouchableOpacity>
         </LinearGradient>
+      </AnimatedCard>
+
+      {/* Monitoring Streak Card */}
+      <AnimatedCard delay={175}>
+        <View style={styles.streakCard}>
+          {/* Header Row */}
+          <View style={styles.streakHeader}>
+            <View style={styles.streakHeaderLeft}>
+              <View style={styles.streakIconWrap}>
+                <Feather name="calendar" size={18} color="#00BBD3" />
+              </View>
+              <View>
+                <Text style={styles.streakTitle}>Monitoring Streak</Text>
+                <Text style={styles.streakSubtitle}>Consistent health tracking</Text>
+              </View>
+            </View>
+            <View style={styles.streakAvatarWrap}>
+              <Feather name="user" size={18} color="#00BBD3" />
+            </View>
+          </View>
+
+          {/* Body: Ring + Stats */}
+          <View style={styles.streakBody}>
+            {/* Circular Progress */}
+            <View style={styles.streakRingContainer}>
+              <Svg width={100} height={100} viewBox="0 0 100 100">
+                <Defs>
+                  <SvgLinearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+                    <Stop offset="0" stopColor="#33E4DB" />
+                    <Stop offset="1" stopColor="#00BBD3" />
+                  </SvgLinearGradient>
+                </Defs>
+                {/* Track */}
+                <Circle
+                  cx="50" cy="50" r={RING_R}
+                  stroke="#E9F6FE" strokeWidth="8" fill="none"
+                />
+                {/* Fill — only render when there is progress */}
+                {streakProgress > 0 && (
+                  <Circle
+                    cx="50" cy="50" r={RING_R}
+                    stroke="url(#ringGrad)" strokeWidth="8" fill="none"
+                    strokeLinecap="round"
+                    strokeDasharray={`${streakProgress * CIRCUMFERENCE} ${CIRCUMFERENCE}`}
+                    transform="rotate(-90 50 50)"
+                  />
+                )}
+              </Svg>
+              <View style={styles.streakRingLabel}>
+                <Text style={styles.streakRingNumber}>{streakWeeks}</Text>
+                <Text style={styles.streakRingUnit}>weeks</Text>
+              </View>
+            </View>
+
+            {/* Right side stats */}
+            <View style={styles.streakStats}>
+              <View style={styles.streakStatRow}>
+                <Text style={styles.streakStatLabel}>Progress</Text>
+                <Text style={styles.streakStatValue}>{streakProgressPct}%</Text>
+              </View>
+              <View style={[styles.streakProgressTrack, { marginTop: 4, marginBottom: 12 }]}>
+                <LinearGradient
+                  colors={['#33E4DB', '#00BBD3']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={[styles.streakProgressFill, { width: `${streakProgressPct}%` }]}
+                />
+              </View>
+              <View style={styles.streakStatRow}>
+                <Text style={styles.streakStatLabel}>Next milestone:</Text>
+                <Text style={[styles.streakStatValue, { color: '#00BBD3' }]}>{nextMilestone} weeks</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Weekly Dots */}
+          <View style={styles.streakWeekRow}>
+            <Text style={styles.streakWeekLabel}>This week</Text>
+            <View style={styles.streakDots}>
+              {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => {
+                const isActive = thisWeekDays.has(i);
+                return (
+                  <View key={i} style={styles.streakDotCol}>
+                    <View style={[styles.streakDot, isActive && styles.streakDotActive]}>
+                      {isActive && <Feather name="check" size={10} color="#FFFFFF" />}
+                    </View>
+                    <Text style={[styles.streakDayText, isActive && styles.streakDayTextActive]}>{day}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        </View>
       </AnimatedCard>
 
       {/* Health Status */}
@@ -389,5 +542,155 @@ const styles = StyleSheet.create({
     color: '#7CA0AC',
     fontWeight: '500',
     marginTop: 2,
+  },
+
+  // Monitoring Streak Card
+  streakCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#F0F9FB',
+    shadowColor: '#00BBD3',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  streakHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  streakHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  streakIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#E6FBFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  streakTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#1A3C47',
+  },
+  streakSubtitle: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#7CA0AC',
+    marginTop: 1,
+  },
+  streakAvatarWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#E6FBFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  streakBody: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  streakRingContainer: {
+    width: 100,
+    height: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 20,
+  },
+  streakRingLabel: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  streakRingNumber: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#1A3C47',
+  },
+  streakRingUnit: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#7CA0AC',
+    marginTop: -2,
+  },
+  streakStats: {
+    flex: 1,
+  },
+  streakStatRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  streakStatLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#7CA0AC',
+  },
+  streakStatValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1A3C47',
+  },
+  streakProgressTrack: {
+    height: 6,
+    backgroundColor: '#E9F6FE',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  streakProgressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  streakWeekRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: '#F0F9FB',
+    paddingTop: 14,
+  },
+  streakWeekLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1A3C47',
+  },
+  streakDots: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  streakDotCol: {
+    alignItems: 'center',
+  },
+  streakDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#E9F6FE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  streakDotActive: {
+    backgroundColor: '#00BBD3',
+  },
+  streakDayText: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: '#B0CED9',
+    marginTop: 3,
+  },
+  streakDayTextActive: {
+    color: '#00BBD3',
+    fontWeight: '600',
   },
 });
