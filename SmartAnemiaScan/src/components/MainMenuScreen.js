@@ -111,7 +111,7 @@ export default function MainMenuScreen({ onLogout }) {
         styles.container,
         isScanTab
           ? { paddingTop: 0, paddingBottom: 0 }
-          : { paddingTop: insets.top, paddingBottom: insets.bottom },
+          : { paddingBottom: insets.bottom },
       ]}
     >
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
@@ -146,7 +146,7 @@ export default function MainMenuScreen({ onLogout }) {
           colors={['#33E4DB', '#00BBD3']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
-          style={styles.header}
+          style={[styles.header, { paddingTop: insets.top + 8 }]}
         >
           <View style={styles.headerLeft}>
             <Text style={styles.headerTitle}>{activeTabData.title}</Text>
@@ -200,10 +200,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF', 
   },
   header: {
-    height: 108,
+    minHeight: 108,
     paddingHorizontal: 20,
     paddingBottom: 20,
-    paddingTop: 8,
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
