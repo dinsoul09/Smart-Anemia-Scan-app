@@ -4,6 +4,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Platform,
+  AppState,
 } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { getProfileInfo, updateProfile, ProfileInfo, UpdateProfileDto } from '../api/ProfileApi';
@@ -26,6 +27,16 @@ const ProfileScreen = () => {
 
   useEffect(() => {
     loadProfile();
+
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (nextAppState === 'active') {
+        loadProfile();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
   const loadProfile = async () => {

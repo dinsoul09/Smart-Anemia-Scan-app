@@ -130,12 +130,15 @@ export default function SignUpScreen({ onBackToLogin, onSuccess }) {
       
       if (result) {
         const token = result?.tokenRecord?.accessToken;
+        const refreshToken = result?.tokenRecord?.refreshToken;
         
         if (token) {
           if (Platform.OS === 'web') {
             localStorage.setItem('userToken', token);
+            if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
           } else if (SecureStore.setItemAsync) {
             await SecureStore.setItemAsync('userToken', token);
+            if (refreshToken) await SecureStore.setItemAsync('refreshToken', refreshToken);
           }
         }
         
