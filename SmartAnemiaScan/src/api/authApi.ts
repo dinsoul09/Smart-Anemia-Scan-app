@@ -120,3 +120,17 @@ export const resetPassword = async (data: ResetPasswordData) => {
     throw error;
   }
 };
+
+export const signOut = async (token: string): Promise<void> => {
+  try {
+    await axios.post('/Authorization/sign-out', null, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+  } catch (error) {
+    // Silently ignore — we still clear local token regardless
+    console.warn('Sign-out API call failed (will still clear local token):', error);
+  }
+};
