@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Linking } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Linking, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import Group95 from '../../../assets/Group95.svg';
@@ -58,7 +58,11 @@ export default function HelpCenterComponent() {
   };
 
   return (
-    <View style={styles.wrapper}>
+    <ScrollView 
+      style={styles.wrapper} 
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
       {/* Background Logo */}
       <View style={styles.bgLogoWrap}>
         <Vector width={280} height={280} style={styles.bgLogo} />
@@ -143,14 +147,16 @@ export default function HelpCenterComponent() {
           </AnimatedCard>
         );
       })}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
-    paddingBottom: 20,
+  },
+  scrollContent: {
+    paddingBottom: 40,
   },
   bgLogoWrap: {
     position: 'absolute',

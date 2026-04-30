@@ -53,13 +53,16 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
       const userData = await loginUser(email, password);
       console.log('Successful login!', userData);
 
-      const token = userData?.tokenRecord?.accessToken
+      const token = userData?.tokenRecord?.accessToken;
+      const refreshToken = userData?.tokenRecord?.refreshToken;
 
       if (token) {
         if (Platform.OS === 'web') {
           localStorage.setItem('userToken', token);
+          if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
         } else if (SecureStore.setItemAsync) {
           await SecureStore.setItemAsync('userToken', token);
+          if (refreshToken) await SecureStore.setItemAsync('refreshToken', refreshToken);
         }
       }
 

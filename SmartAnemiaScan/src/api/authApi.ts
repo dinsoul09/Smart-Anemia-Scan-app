@@ -14,6 +14,34 @@ interface LoginError {
   description: string;
 }
 
+export const AuthEventEmitter = {
+  listeners: [],
+  subscribe(listener: () => void) {
+    this.listeners.push(listener);
+    return () => {
+      this.listeners = this.listeners.filter(l => l !== listener);
+    };
+  },
+  emit() {
+    this.listeners.forEach(l => l());
+  }
+};
+
+export const refreshTokenApi = async (refreshToken: string) => {
+  try {
+    const response = await axios.post<LoginResponse>('/Authorization/refresh', {
+      refreshToken: refreshToken
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+    return response.data;
+  } catch (error: any) {
+    throw error.response?.data || error;
+  }
+};
+
 export const loginUser = async (email, password) => {
   try {
     const response = await axios.post<LoginResponse>('/Authorization/sign-in', {

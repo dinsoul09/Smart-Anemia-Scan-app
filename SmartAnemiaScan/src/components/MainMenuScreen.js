@@ -84,9 +84,11 @@ export default function MainMenuScreen({ onLogout }) {
       if (Platform.OS === 'web') {
         token = localStorage.getItem('userToken');
         localStorage.removeItem('userToken');
+        localStorage.removeItem('refreshToken');
       } else {
         token = await SecureStore.getItemAsync('userToken');
         await SecureStore.deleteItemAsync('userToken');
+        await SecureStore.deleteItemAsync('refreshToken');
       }
 
       if (token) {

@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Animated,
   Platform,
+  AppState,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
@@ -49,6 +50,16 @@ export default function HomeScreen({ onStartScan }) {
 
   useEffect(() => {
     loadProfile();
+    
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (nextAppState === 'active') {
+        loadProfile();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
   const loadProfile = async () => {

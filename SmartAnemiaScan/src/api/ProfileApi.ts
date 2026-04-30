@@ -1,4 +1,4 @@
-import axios from "axios";
+import { apiClient } from './apiClient';
 
 export enum Sex {
   Male = 0,
@@ -55,10 +55,8 @@ export interface UpdateProfileDto {
  * @param token - Authorization Bearer token
  */
 export const getProfileInfo = async (token: string): Promise<ProfileResponse> => {
-  const API_URL = 'https://api-anemiascan.ru';
-  axios.defaults.baseURL = API_URL;
   try {
-    const response = await axios.get('/Profile/info', {
+    const response = await apiClient.get('/Profile/info', {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -76,12 +74,9 @@ export const getProfileInfo = async (token: string): Promise<ProfileResponse> =>
  * @param data - Profile update data
  */
 export const updateProfile = async (token: string, data: UpdateProfileDto) => {
-  const API_URL = 'https://api-anemiascan.ru';
-  axios.defaults.baseURL = API_URL;
   try {
-    const response = await axios.patch('/Profile', data, {
+    const response = await apiClient.patch('/Profile', data, {
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       }
     });
