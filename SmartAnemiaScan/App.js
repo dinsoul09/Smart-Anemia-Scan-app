@@ -25,7 +25,7 @@ export default function App() {
           onSuccess={() => setActiveScreen('mainMenu')}
         />
       ) : activeScreen === 'mainMenu' ? (
-        <MainMenuScreen />
+        <MainMenuScreen onLogout={() => setActiveScreen('signIn')} />
       ) : (
         <SignInScreen
           onSignUpPress={() => setActiveScreen('signUp')}
