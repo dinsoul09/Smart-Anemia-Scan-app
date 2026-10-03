@@ -8,6 +8,21 @@ import { Feather } from '@expo/vector-icons';
 import { uploadAnemiaPhoto } from '../../../api/anemiaApi';
 import ScanGuideModal from './ScanGuideModal';
 import ScanResultModal from './ScanResultModal';
+import ConjunctivaMaskEditor from './ConjunctivaMaskEditor';
+import { maskConjunctiva, prepareScanPhoto } from '../../../utils/conjunctivaMask';
+import { validateOutline } from '../../../utils/conjunctivaMask.shared';
+
+// The backend allows a limited number of scans per minute and answers 429 with Retry-After in seconds
+const getUploadErrorText = (error, fallback) => {
+  if (error?.response?.status !== 429) {
+    return fallback;
+  }
+
+  const retryAfter = Number(error.response.headers?.['retry-after']);
+  return retryAfter > 0
+    ? `Too many scans in a row. Please try again in ${retryAfter} s.`
+    : 'Too many scans in a row. Please wait a minute and try again.';
+};
 
 export default function ScanComponent({ onGoBack }) {
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
@@ -17,6 +32,9 @@ export default function ScanComponent({ onGoBack }) {
   const [predictionResult, setPredictionResult] = useState(null);
   const [isResultModalVisible, setIsResultModalVisible] = useState(false);
   const [facing, setFacing] = useState('back');
+  // Photo waiting for the user to outline the conjunctiva; only the outlined area is uploaded
+  const [photoToMask, setPhotoToMask] = useState(null);
+  const [maskErrorText, setMaskErrorText] = useState('');
   const cameraRef = useRef(null);
 
   useEffect(() => {
@@ -28,7 +46,7 @@ export default function ScanComponent({ onGoBack }) {
     ensureCameraPermission();
   }, [cameraPermission?.granted, requestCameraPermission]);
 
-  const uploadEyePhoto = async (photoUri) => {
+  const uploadEyePhoto = async (photoUri, fileName) => {
     let token = null;
 
     if (Platform.OS === 'web') {
@@ -41,7 +59,43 @@ export default function ScanComponent({ onGoBack }) {
       throw new Error('User token not found');
     }
 
-    return uploadAnemiaPhoto(token, photoUri);
+    return uploadAnemiaPhoto(token, photoUri, fileName);
+  };
+
+  const handleConfirmMask = async (points) => {
+    const outlineError = validateOutline(photoToMask, points);
+    if (outlineError) {
+      setMaskErrorText(outlineError);
+      return;
+    }
+
+    setMaskErrorText('');
+    setIsUploading(true);
+    try {
+      const masked = await maskConjunctiva(photoToMask, points);
+      const predictionData = await uploadEyePhoto(masked.uri, masked.fileName);
+      setPhotoToMask(null);
+      setPredictionResult(predictionData);
+      setScanStatusText('');
+      // iOS cannot present a modal while the editor modal is still sliding away
+      setTimeout(() => setIsResultModalVisible(true), 400);
+    } catch (error) {
+      if (error?.response?.status === 400) {
+        // The backend rejected the image format (outline size, resolution): its text is meant for the user.
+        // Keep the photo so they can fix the outline, or retake if the photo itself is the problem.
+        setMaskErrorText(error.response.data?.description || 'Please adjust the outline and try again.');
+      } else {
+        setPhotoToMask(null);
+        setScanStatusText(getUploadErrorText(error, 'Failed to upload scan. Please try again.'));
+      }
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const closeMaskEditor = () => {
+    setPhotoToMask(null);
+    setMaskErrorText('');
   };
 
   const handleCapturePhoto = async () => {
@@ -62,13 +116,10 @@ export default function ScanComponent({ onGoBack }) {
         throw new Error('Could not capture photo.');
       }
 
-      setScanStatusText('Uploading photo...');
-      const predictionData = await uploadEyePhoto(photo.uri);
-      setPredictionResult(predictionData);
-      setIsResultModalVisible(true);
+      setPhotoToMask(await prepareScanPhoto(photo.uri));
       setScanStatusText('');
     } catch (error) {
-      setScanStatusText('Failed to upload scan. Please try again.');
+      setScanStatusText('Could not capture photo. Please try again.');
     } finally {
       setIsUploading(false);
     }
@@ -97,13 +148,10 @@ export default function ScanComponent({ onGoBack }) {
       }
 
       setIsUploading(true);
-      setScanStatusText('Uploading photo...');
-      const predictionData = await uploadEyePhoto(result.assets[0].uri);
-      setPredictionResult(predictionData);
-      setIsResultModalVisible(true);
+      setPhotoToMask(await prepareScanPhoto(result.assets[0].uri));
       setScanStatusText('');
     } catch (error) {
-      setScanStatusText('Failed to upload image. Please try again.');
+      setScanStatusText('Could not open the image. Please try again.');
     } finally {
       setIsUploading(false);
     }
@@ -173,6 +221,14 @@ export default function ScanComponent({ onGoBack }) {
       <ScanGuideModal
         visible={isScanGuideVisible}
         onClose={() => setIsScanGuideVisible(false)}
+      />
+
+      <ConjunctivaMaskEditor
+        photo={photoToMask}
+        isSubmitting={isUploading}
+        errorText={maskErrorText}
+        onRetake={closeMaskEditor}
+        onConfirm={handleConfirmMask}
       />
 
       <ScanResultModal

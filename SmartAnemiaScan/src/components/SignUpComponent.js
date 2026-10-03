@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   SafeAreaView,
   View,
@@ -10,10 +10,11 @@ import {
   ScrollView,
   ActivityIndicator,
   Platform,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
-import { signUpUser, sendEmailCode, verifyRegistration } from '../api/authApi';
+import { signUpUser, sendEmailCode, verifyRegistration, getLegal } from '../api/authApi';
 import EmailVerificationStep from './EmailVerificationStep';
 import ErrorModal from '../modals/ErrorModal/ErrorModal';
 
@@ -31,6 +32,26 @@ export default function SignUpScreen({ onBackToLogin, onSuccess }) {
   
   const [errorVisible, setErrorVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  const [consentAccepted, setConsentAccepted] = useState(false);
+  const [legal, setLegal] = useState(null); // { policyVersion, policyUrl } from GET /Legal
+
+  const loadLegal = async () => {
+    try {
+      setLegal(await getLegal());
+    } catch (error) {
+      // Without it the backend assumes the current policy version was shown
+      console.warn('Failed to load legal info:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadLegal();
+  }, []);
+
+  const openPolicy = () => {
+    if (legal?.policyUrl) Linking.openURL(legal.policyUrl);
+  };
 
   const updateFormData = (key, value) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
@@ -51,6 +72,12 @@ export default function SignUpScreen({ onBackToLogin, onSuccess }) {
 
     if (!isValidDate(formData.birthDate)) {
       setErrorMessage('Please enter a valid date of birth (DD / MM / YYYY).');
+      setErrorVisible(true);
+      return;
+    }
+
+    if (!consentAccepted) {
+      setErrorMessage('Please accept the Privacy Policy to continue.');
       setErrorVisible(true);
       return;
     }
@@ -124,6 +151,8 @@ export default function SignUpScreen({ onBackToLogin, onSuccess }) {
         ...formData,
         birthDate: formatDateToISO(formData.birthDate),
         emailCode: code,
+        consentAccepted,
+        policyVersion: legal?.policyVersion ?? null,
       };
       
       const result = await signUpUser(signUpParams);
@@ -158,7 +187,13 @@ export default function SignUpScreen({ onBackToLogin, onSuccess }) {
       }
 
       if (!detail) {
-        detail = data?.detail || data?.title || data?.message || '';
+        // SASException responses carry the text in `description`
+        detail = data?.description || data?.detail || data?.title || data?.message || '';
+      }
+
+      // Policy changed while the user was on this screen: fetch the current version for the retry
+      if (error.response?.status === 400 && data?.description) {
+        loadLegal();
       }
 
       // Format English error messages
@@ -253,6 +288,24 @@ export default function SignUpScreen({ onBackToLogin, onSuccess }) {
               maxLength={14}
               keyboardType="number-pad"
             />
+
+            <TouchableOpacity
+              style={styles.consentRow}
+              onPress={() => setConsentAccepted((v) => !v)}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: consentAccepted }}
+            >
+              <View style={[styles.checkbox, consentAccepted && styles.checkboxChecked]}>
+                {consentAccepted && <Text style={styles.checkmark}>✓</Text>}
+              </View>
+              <Text style={styles.consentText}>
+                I agree to the{' '}
+                <Text style={legal?.policyUrl ? styles.consentLink : null} onPress={legal?.policyUrl ? openPolicy : undefined}>
+                  Privacy Policy
+                </Text>
+                {' '}and to the processing of my data, including eye photos
+              </Text>
+            </TouchableOpacity>
 
             <TouchableOpacity style={styles.signupOuter} onPress={handleNextStep}>
               <LinearGradient colors={['#33E4DB', '#00BBD3']} style={styles.signupButton}>
@@ -357,9 +410,44 @@ container: {
     color: '#23C7D6',
     marginLeft: 8,
   },
+  consentRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 24,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#00BCD4',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    marginTop: 1,
+  },
+  checkboxChecked: {
+    backgroundColor: '#00BCD4',
+  },
+  checkmark: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  consentText: {
+    flex: 1,
+    color: '#444',
+    fontSize: 15,
+    lineHeight: 21,
+  },
+  consentLink: {
+    color: '#00BCD4',
+    fontWeight: '700',
+    textDecorationLine: 'underline',
+  },
   signupOuter: {
     alignItems: 'center',
-    marginTop: 60,
+    marginTop: 40,
   },
   signupButton: {
     width: 220,

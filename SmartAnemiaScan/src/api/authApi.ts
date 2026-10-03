@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = 'https://api-anemiascan.ru';
+const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://api-anemiascan.ru';
 axios.defaults.baseURL = API_URL;
 
 interface LoginResponse {
@@ -95,7 +95,22 @@ export interface SignUpData {
   birthDate: string;
   password: string;
   confirmPassword: string;
+  consentAccepted: boolean;
+  policyVersion: string | null;
 }
+
+export interface LegalInfo {
+  policyVersion: string;
+  policyUrl: string | null;
+  disclaimerVersion: string;
+  disclaimerText: string;
+}
+
+// Current privacy policy version and link — shown on sign-up before the account exists
+export const getLegal = async (): Promise<LegalInfo> => {
+  const response = await axios.get<LegalInfo>('/Legal');
+  return response.data;
+};
 
 export const signUpUser = async (data: SignUpData) => {
   try {
