@@ -1,282 +1,221 @@
-import React, { useRef, useState, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  PanResponder,
-  LayoutChangeEvent,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import React from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import ProfileField from './ProfileField';
-import ScanList from '../ScanList';
 import { ProfileInfo } from '../../api/ProfileApi';
+import { IconButton, NAV_CLEARANCE } from '../ui';
+import { colors, fonts, radii, type } from '../../theme';
 
 interface ProfileViewProps {
   profile: ProfileInfo | null;
   onEdit: () => void;
+  onLogout: () => void;
+  onOpenHelp: () => void;
+  onOpenPrivacy?: () => void;
 }
 
-const SCROLLBAR_WIDTH = 6;
-const THUMB_MIN_HEIGHT = 40;
+const getSexLabel = (sex: string | null | undefined) => {
+  if (sex === '0') return 'Male';
+  if (sex === '1') return 'Female';
+  return sex || null;
+};
 
-const ProfileView: React.FC<ProfileViewProps> = ({ profile, onEdit }) => {
-  const scrollViewRef = useRef<ScrollView>(null);
-  const scrollOffsetRef = useRef(0);
-  const contentHeightRef = useRef(0);
-  const containerHeightRef = useRef(0);
+const formatBirthDate = (dateString: string | null | undefined, age: number | null | undefined) => {
+  if (!dateString) return null;
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return dateString;
+  const formatted = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  // Sign-up stores only the birth date, so derive the age when the profile has none
+  const now = new Date();
+  const years = age ?? now.getFullYear() - date.getFullYear() - (now < new Date(now.getFullYear(), date.getMonth(), date.getDate()) ? 1 : 0);
+  return `${formatted} · ${years} y`;
+};
 
-  const [thumbTop, setThumbTop] = useState(0);
-  const [thumbHeight, setThumbHeight] = useState(THUMB_MIN_HEIGHT);
-  const [isThumbVisible, setIsThumbVisible] = useState(false);
-  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+const initials = (name: string | null | undefined, email: string | null | undefined) => {
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return (parts[0]?.[0] || email?.[0] || '?').toUpperCase();
+};
 
-  const getSexLabel = (sex: string | null | undefined) => {
-    if (sex === '0') return 'Male';
-    if (sex === '1') return 'Female';
-    return sex;
-  };
+// "Aruzhan Serikovna" → "Aruzhan S."
+const shortName = (name: string | null | undefined) => {
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'Your profile';
+  return parts.length > 1 ? `${parts[0]} ${parts[1][0]}.` : parts[0];
+};
 
-  const formatBirthDate = (dateString: string | null | undefined) => {
-    if (!dateString) return undefined;
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return dateString.replace('Z', '');
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
-  const computeThumb = useCallback(() => {
-    const content = contentHeightRef.current;
-    const container = containerHeightRef.current;
-    if (content <= container || container === 0) return;
-
-    const ratio = container / content;
-    const newThumbHeight = Math.max(ratio * container, THUMB_MIN_HEIGHT);
-    const trackHeight = container - newThumbHeight;
-    const scrollRatio = scrollOffsetRef.current / (content - container);
-    const newThumbTop = scrollRatio * trackHeight;
-
-    setThumbHeight(newThumbHeight);
-    setThumbTop(Math.max(0, Math.min(newThumbTop, trackHeight)));
-  }, []);
-
-  const showThumb = useCallback(() => {
-    setIsThumbVisible(true);
-    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-    hideTimerRef.current = setTimeout(() => setIsThumbVisible(false), 1500);
-  }, []);
-
-  const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
-    contentHeightRef.current = e.nativeEvent.contentSize.height;
-    containerHeightRef.current = e.nativeEvent.layoutMeasurement.height;
-    computeThumb();
-    showThumb();
-  };
-
-  const handleContainerLayout = (e: LayoutChangeEvent) => {
-    containerHeightRef.current = e.nativeEvent.layout.height;
-    computeThumb();
-  };
-
-  // PanResponder for the draggable thumb
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-        setIsThumbVisible(true);
-      },
-      onPanResponderMove: (_evt, gestureState) => {
-        const container = containerHeightRef.current;
-        const content = contentHeightRef.current;
-        if (content <= container || container === 0) return;
-
-        const thumbH = Math.max((container / content) * container, THUMB_MIN_HEIGHT);
-        const trackHeight = container - thumbH;
-
-        // Calculate new thumb position from current offset + delta
-        const currentScrollRatio = scrollOffsetRef.current / (content - container);
-        const currentThumbTop = currentScrollRatio * trackHeight;
-        const newThumbTop = Math.max(0, Math.min(currentThumbTop + gestureState.dy, trackHeight));
-
-        const newScrollRatio = newThumbTop / trackHeight;
-        const newOffset = newScrollRatio * (content - container);
-
-        scrollOffsetRef.current = newOffset;
-        scrollViewRef.current?.scrollTo({ y: newOffset, animated: false });
-        computeThumb();
-      },
-      onPanResponderRelease: () => {
-        hideTimerRef.current = setTimeout(() => setIsThumbVisible(false), 1500);
-      },
-    })
-  ).current;
-
+function DetailRow({ label, value, last }: { label: string; value: string | null; last?: boolean }) {
   return (
-    <View style={styles.wrapper} onLayout={handleContainerLayout}>
-      <ScrollView
-        ref={scrollViewRef}
-        style={styles.container}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-      >
-        {/* Profile Section Header with Edit button */}
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionTitleRow}>
-            <Feather name="user" size={20} color="#00BBD3" />
-            <Text style={styles.sectionTitle}>Personal Details</Text>
-          </View>
-          <TouchableOpacity style={styles.editIconButton} onPress={onEdit} activeOpacity={0.7}>
-            <LinearGradient
-              colors={['#33E4DB', '#00BBD3']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.editIconGradient}
-            >
-              <Feather name="edit-3" size={15} color="#FFFFFF" />
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.detailsCard}>
-          <ProfileField label="Full Name" value={profile?.fullName} iconName="user" />
-          <ProfileField label="Email" value={profile?.email} iconName="mail" />
-          <ProfileField label="Birth Date" value={formatBirthDate(profile?.birthDate)} iconName="calendar" />
-          <ProfileField label="Age" value={profile?.age} iconName="hash" />
-          <ProfileField label="Sex" value={getSexLabel(profile?.sex)} iconName="users" />
-        </View>
-
-        {/* Scans Section */}
-        <View style={styles.scansSection}>
-          <LinearGradient
-            colors={['#33E4DB', '#00BBD3']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.scansHeader}
-          >
-            <Feather name="activity" size={20} color="#FFFFFF" style={styles.headerIcon} />
-            <Text style={styles.scansHeaderText}>Your scan history</Text>
-          </LinearGradient>
-
-          <ScanList scans={profile?.anemiaScans || []} />
-        </View>
-      </ScrollView>
-
-      {/* Custom Draggable Scrollbar */}
-      {isThumbVisible && (
-        <View style={styles.scrollbarTrack} pointerEvents="box-none">
-          <View
-            style={[styles.scrollbarThumb, { top: thumbTop, height: thumbHeight }]}
-            {...panResponder.panHandlers}
-          />
-        </View>
-      )}
+    <View style={[styles.detailRow, !last && styles.rowDivider]}>
+      <Text style={type.bodyMuted}>{label}</Text>
+      <Text style={[styles.detailValue, !value && styles.detailMissing]}>{value || 'Not set'}</Text>
     </View>
+  );
+}
+
+function SettingsRow({
+  icon,
+  label,
+  onPress,
+  last,
+}: {
+  icon: React.ComponentProps<typeof Feather>['name'];
+  label: string;
+  onPress: () => void;
+  last?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={({ pressed }) => [styles.settingsRow, !last && styles.rowDivider, pressed && styles.pressed]}
+    >
+      <Feather name={icon} size={20} color={colors.primary} />
+      <Text style={styles.settingsLabel}>{label}</Text>
+      <Feather name="chevron-right" size={20} color={colors.subtle} />
+    </Pressable>
+  );
+}
+
+const ProfileView: React.FC<ProfileViewProps> = ({ profile, onEdit, onLogout, onOpenHelp, onOpenPrivacy }) => {
+  return (
+    <ScrollView contentContainerStyle={styles.scroll}>
+      <Text style={[type.title, styles.title]} accessibilityRole="header">Profile</Text>
+
+      <View style={styles.card}>
+        <View style={styles.identity}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{initials(profile?.fullName, profile?.email)}</Text>
+          </View>
+          <View style={styles.identityText}>
+            <Text style={type.subheading} numberOfLines={1}>{shortName(profile?.fullName)}</Text>
+            <Text style={type.caption} numberOfLines={1}>{profile?.email}</Text>
+          </View>
+          <IconButton icon="edit-2" accessibilityLabel="Edit profile" onPress={onEdit} style={styles.editButton} size={20} />
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={[type.section, styles.sectionTitle]}>Personal details</Text>
+        <View style={styles.card}>
+          <DetailRow label="Full name" value={profile?.fullName ?? null} />
+          <DetailRow label="Birth date" value={formatBirthDate(profile?.birthDate, profile?.age)} />
+          <DetailRow label="Sex" value={getSexLabel(profile?.sex)} last />
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={[type.section, styles.sectionTitle]}>Settings</Text>
+        <View style={styles.card}>
+          {onOpenPrivacy ? <SettingsRow icon="shield" label="Privacy & my data" onPress={onOpenPrivacy} /> : null}
+          <SettingsRow icon="help-circle" label="Help & contacts" onPress={onOpenHelp} last />
+        </View>
+      </View>
+
+      <Pressable onPress={onLogout} accessibilityRole="button" style={({ pressed }) => [styles.logout, pressed && styles.pressed]}>
+        <Feather name="log-out" size={20} color={colors.danger} />
+        <Text style={styles.logoutText}>Log out</Text>
+      </Pressable>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  wrapper: {
-    flex: 1,
-    position: 'relative',
+  scroll: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: NAV_CLEARANCE,
+    gap: 16,
   },
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 40,
-    paddingRight: SCROLLBAR_WIDTH + 8,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
+  title: {
     paddingHorizontal: 4,
   },
-  sectionTitleRow: {
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.xl,
+    paddingHorizontal: 16,
+  },
+  identity: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 14,
+    paddingVertical: 16,
+  },
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.roseTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    fontFamily: fonts.bold,
+    fontSize: 19,
+    color: colors.roseInk,
+  },
+  identityText: {
+    flex: 1,
+    gap: 2,
+  },
+  editButton: {
+    backgroundColor: colors.ground,
+  },
+  section: {
+    gap: 8,
   },
   sectionTitle: {
-    color: '#1A3C47',
-    fontSize: 20,
-    fontWeight: '700',
-    marginLeft: 10,
+    paddingHorizontal: 4,
   },
-  editIconButton: {
-    borderRadius: 12,
-    overflow: 'hidden',
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+    minHeight: 52,
   },
-  editIconGradient: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
+  rowDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+  },
+  detailValue: {
+    flexShrink: 1,
+    fontFamily: fonts.semibold,
+    fontSize: 15,
+    color: colors.ink,
+    textAlign: 'right',
+  },
+  detailMissing: {
+    fontFamily: fonts.regular,
+    color: colors.muted,
+  },
+  settingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    minHeight: 56,
+  },
+  settingsLabel: {
+    flex: 1,
+    fontFamily: fonts.medium,
+    fontSize: 15,
+    color: colors.ink,
+  },
+  pressed: {
+    opacity: 0.7,
+  },
+  logout: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
+    height: 54,
+    borderRadius: radii.lg,
+    backgroundColor: colors.surface,
   },
-  detailsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: '#00BBD3',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
-    marginBottom: 30,
-    borderWidth: 1,
-    borderColor: '#F0F9FB',
-  },
-  scansSection: {
-    marginTop: 10,
-  },
-  scansHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 24,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    marginBottom: 20,
-    alignSelf: 'center',
-  },
-  headerIcon: {
-    marginRight: 10,
-  },
-  scansHeaderText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  // Custom scrollbar styles
-  scrollbarTrack: {
-    position: 'absolute',
-    right: 3,
-    top: 0,
-    bottom: 0,
-    width: SCROLLBAR_WIDTH,
-    borderRadius: SCROLLBAR_WIDTH / 2,
-    backgroundColor: 'rgba(0, 187, 211, 0.1)',
-  },
-  scrollbarThumb: {
-    position: 'absolute',
-    right: 0,
-    width: SCROLLBAR_WIDTH,
-    borderRadius: SCROLLBAR_WIDTH / 2,
-    backgroundColor: '#00BBD3',
-    opacity: 0.75,
+  logoutText: {
+    fontFamily: fonts.semibold,
+    fontSize: 16,
+    color: colors.danger,
   },
 });
 

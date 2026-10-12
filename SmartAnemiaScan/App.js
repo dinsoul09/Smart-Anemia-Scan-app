@@ -7,10 +7,13 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthEventEmitter } from './src/api/authApi';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+import { useFonts } from 'expo-font';
+import { fontFiles } from './src/theme';
 
 export default function App() {
   const [isShowSplash, setIsShowSplash] = useState(true);
   const [activeScreen, setActiveScreen] = useState('signIn');
+  const [fontsLoaded, fontError] = useFonts(fontFiles);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -46,8 +49,9 @@ export default function App() {
     };
   }, []);
 
-  if (isShowSplash) {
-    return <SplashScreen />;
+  // Keep the splash until the Onest font is ready (or failed — then system font is used).
+  if (isShowSplash || (!fontsLoaded && !fontError)) {
+    return <SplashScreen fontsLoaded={fontsLoaded} />;
   }
 
   return (
