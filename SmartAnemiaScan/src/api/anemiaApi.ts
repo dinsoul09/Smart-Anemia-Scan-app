@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
+import { apiClient } from './apiClient';
 
 // The backend stores the original bytes in GridFS on a remote cluster, and that upload is what
 // dominates the request (~1.6 s per megabyte measured locally). The model resizes its own input,
@@ -83,5 +84,35 @@ export const uploadAnemiaPhoto = async (token: string, photoUri: string, name?: 
     },
   });
 
+  return res.data;
+};
+
+export type Sick = 'Anemia' | 'Healthy';
+
+/** One scan in the history list; the same fields as a prediction result. */
+export interface ScanHistoryItem {
+  id: string;
+  scanDate: string;
+  sick: Sick;
+  confidence: number;
+  hemoglobinLevel: number | null;
+  severity: string | null;
+  imageSystemId: string | null;
+}
+
+export interface ScanHistoryPage {
+  items: ScanHistoryItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  disclaimer: string;
+}
+
+// Newest scans first
+export const getScanHistory = async (token: string, page = 1, pageSize = 20): Promise<ScanHistoryPage> => {
+  const res = await apiClient.get('/Analysis/history/', {
+    params: { page, pageSize },
+    headers: { Authorization: `Bearer ${token}` },
+  });
   return res.data;
 };

@@ -1,32 +1,32 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
 import {
-  SafeAreaView,
   View,
   Text,
-  TextInput,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   StatusBar,
   Platform,
+  ScrollView,
+  KeyboardAvoidingView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-
-import { LinearGradient } from 'expo-linear-gradient';
 import ForgotPasswordShell from './ForgotPasswordShell';
 import ForgotPasswordStepContent from './ForgotPasswordStepContent';
 import ErrorModal from '../modals/ErrorModal/ErrorModal';
 import SuccessModal from '../modals/SuccessModal/SuccessModal';
 import * as SecureStore from 'expo-secure-store';
 import { loginUser, sendEmailCode, verifyRecoveryCode, resetPassword } from '../api/authApi';
+import { Button, TextField, BrandMark, EyeIllustration } from './ui';
+import { colors, fonts, radii, spacing, type } from '../theme';
 
 
 export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
 
   const [isErrorModalVisible, setIsErrorModalVisible] = useState(false);
   const [emailError, setEmailError] = useState(false);
-  const [passwordHidden, setPasswordHidden] = useState(true);
-  const [codeError, setCodeError] = useState(false);
+    const [codeError, setCodeError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [screenMode, setScreenMode] = useState('login');
   const [recoveryStep, setRecoveryStep] = useState('email');
@@ -40,6 +40,9 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
 
   const [isSuccessModalVisible, setIsSuccessModalVisible] = useState(false);
   const [successModalMessage, setSuccessModalMessage] = useState('');
+  // Only a real login should open the main menu when the success modal closes,
+  // not a finished password reset.
+  const [successOpensApp, setSuccessOpensApp] = useState(false);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -66,6 +69,7 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
         }
       }
 
+      setSuccessOpensApp(true);
       setSuccessModalMessage('You have successfully logged in!');
       setIsSuccessModalVisible(true);
     } catch (err) {
@@ -179,7 +183,8 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
           confirmPassword: confirmPassword
         });
 
-        setSuccessModalMessage('Your password has been successfully reset!');
+        setSuccessOpensApp(false);
+        setSuccessModalMessage('Your password has been successfully reset! You can log in now.');
         setIsSuccessModalVisible(true);
         
         // After success, we go back to login
@@ -219,14 +224,15 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
 
   if (screenMode === 'forgot') {
     return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor="#F6F7F8" />
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <StatusBar barStyle="dark-content" backgroundColor={colors.ground} />
         <ForgotPasswordShell
           step={recoveryStep}
           title={recoveryTitle}
           description={recoveryDescription}
           bottomNote={bottomNote}
           actionLabel={actionLabel}
+          loading={loading}
           onBack={handleRecoveryBack}
           onAction={loading ? null : handleSendRecovery}
         >
@@ -250,94 +256,97 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
           />
         </ForgotPasswordShell>
         <ErrorModal
-          visible={isErrorModalVisible} 
-          errorMessage={errorModalMessage} 
-          onClose={() => setIsErrorModalVisible(false)} 
+          visible={isErrorModalVisible}
+          errorMessage={errorModalMessage}
+          onClose={() => setIsErrorModalVisible(false)}
         />
       </SafeAreaView>
     );
   }
+
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F1F3F4" />
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.ground} />
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          <View style={styles.hero}>
+            <View style={styles.rings} pointerEvents="none">
+              <View style={[styles.ring, { width: 156, height: 156, borderRadius: 78, top: 72, left: '50%', marginLeft: -78 }]} />
+              <View style={[styles.ring, { width: 248, height: 248, borderRadius: 124, top: 26, left: '50%', marginLeft: -124, opacity: 0.8 }]} />
+              <View style={[styles.ring, { width: 344, height: 344, borderRadius: 172, top: -22, left: '50%', marginLeft: -172, opacity: 0.6 }]} />
+            </View>
 
-      <LinearGradient colors={['#33E4DB', '#00BBD3']} style={styles.header}>
-        <View style={styles.headerSpacer} />
+            <View style={styles.brandRow}>
+              <BrandMark size={30} inverted />
+              <Text style={styles.brandName}>SmartAnemiaScan</Text>
+            </View>
 
-        <Text style={styles.headerTitle}>Log In</Text>
+            <View style={styles.eye}>
+              <EyeIllustration />
+              <View style={styles.lidTag}>
+                <View style={styles.lidDot} />
+                <Text style={styles.lidTagText}>Lower eyelid</Text>
+              </View>
+            </View>
 
-        <View style={styles.headerSpacer} />
-      </LinearGradient>
+            <Text style={styles.heroTitle}>Anemia screening{'\n'}from one eyelid photo</Text>
+          </View>
 
-      <View style={styles.content}>
-        <Text style={styles.welcome}>Welcome</Text>
-        <Text style={styles.subtitle}>Start scanning!</Text>
+          <View style={styles.intro}>
+            <Text style={type.title} accessibilityRole="header">Welcome back</Text>
+            <Text style={type.bodyMuted}>Log in to keep tracking your eyelid scans.</Text>
+          </View>
 
-        <Text style={styles.label}>Email or Phone Number</Text>
-        
-        <TextInput
-          value={email}
-          onChangeText={setEmail}
-          placeholder="example@example.com"
-          placeholderTextColor="#00BCD4"
-          style={styles.input}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
+          <View style={styles.form}>
+            <TextField
+              label="Email or phone"
+              value={email}
+              onChangeText={setEmail}
+              placeholder="you@example.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoComplete="email"
+              textContentType="username"
+            />
+            <TextField
+              label="Password"
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Your password"
+              secure
+              autoComplete="password"
+              textContentType="password"
+              labelAccessory={
+                <Pressable onPress={openForgotPassword} accessibilityRole="button" hitSlop={10}>
+                  <Text style={styles.link}>Forgot?</Text>
+                </Pressable>
+              }
+            />
+          </View>
 
-        <Text style={[styles.label, styles.passwordLabel]}>Password</Text>
-        <View style={styles.passwordWrapper}>
-          <TextInput
-            value={password}
-            onChangeText={setPassword}
-            placeholder="************"
-            placeholderTextColor="#00BCD4"
-            style={styles.passwordInput}
-            secureTextEntry={passwordHidden}
-          />
+          <Button title={loading ? 'Logging in…' : 'Log in'} onPress={handleLogin} loading={loading} />
 
-          <TouchableOpacity onPress={() => setPasswordHidden((v) => !v)}>
-            <Text style={styles.eyeIcon}>{passwordHidden ? '◠' : '◡'}</Text>
-          </TouchableOpacity>
-        </View>
+          <View style={styles.signupRow}>
+            <Text style={type.caption}>New here?</Text>
+            <Pressable onPress={onSignUpPress} accessibilityRole="button" hitSlop={10}>
+              <Text style={styles.link}>Create an account</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
-        <TouchableOpacity onPress={openForgotPassword}>
-         <Text style={styles.forgot}>Forgot Password?</Text>
-         </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.loginOuter} 
-          onPress={handleLogin}
-          disabled={loading}
-        >
-          <LinearGradient colors={['#33E4DB', '#00BBD3']} style={styles.loginButton}>
-            <Text style={styles.loginText}>
-              {loading ? 'Logging in...' : 'Log In'}
-            </Text>
-          </LinearGradient>
-        </TouchableOpacity>
-
-
-
-        <View style={styles.signupRow}>
-          <Text style={styles.signupText}>Don't have an account?</Text>
-          <TouchableOpacity onPress={onSignUpPress}>
-            <Text style={styles.signupLink}> Sign Up</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
       <ErrorModal
-        visible={isErrorModalVisible} 
-        errorMessage={errorModalMessage} 
-        onClose={() => setIsErrorModalVisible(false)} 
+        visible={isErrorModalVisible}
+        errorMessage={errorModalMessage}
+        onClose={() => setIsErrorModalVisible(false)}
       />
       <SuccessModal
-        visible={isSuccessModalVisible} 
-        message={successModalMessage} 
+        visible={isSuccessModalVisible}
+        message={successModalMessage}
         onClose={() => {
           setIsSuccessModalVisible(false);
-          if (onLoginSuccess) onLoginSuccess(); 
-        }} 
+          if (successOpensApp && onLoginSuccess) onLoginSuccess();
+        }}
       />
     </SafeAreaView>
   );
@@ -346,117 +355,100 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF'
+    backgroundColor: colors.ground,
   },
-  header: {
-    height: 90,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
+  flex: {
+    flex: 1,
+  },
+  scroll: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.form,
+    paddingTop: 8,
+    paddingBottom: 24,
+    gap: 20,
+  },
+  hero: {
+    height: 330,
+    borderRadius: radii.hero,
+    backgroundColor: colors.primary,
+    overflow: 'hidden',
+    paddingHorizontal: 22,
+    paddingTop: 20,
+    paddingBottom: 22,
     justifyContent: 'space-between',
   },
-  backArrow: {
-    color: '#FFFFFF',
-    fontSize: 34,
-    marginTop: -2,
+  rings: {
+    ...StyleSheet.absoluteFillObject,
   },
-  headerTitle: {
-    color: '#FFFFFF',
-    fontSize: 26,
-    fontWeight: '600',
+  ring: {
+    position: 'absolute',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
   },
-  headerSpacer: {
-    width: 18,
-  },
-  content: {
-    paddingTop: 28,
-    paddingHorizontal: 32,
-  },
-  welcome: {
-    color: '#13CAD6',
-    fontSize: 25,
-    fontWeight: '700',
-  },
-  subtitle: {
-    marginTop: 5,
-    marginBottom: 42,
-    color: '#5F6368',
-    fontSize: 18,
-  },
-  label: {
-    color: '#333333',
-    fontSize: 19,
-    fontWeight: '700',
-    marginBottom: 10,
-    marginTop: 60,
-  },
-  passwordLabel: {
-    marginTop: 20,
-  },
-  input: {
-    backgroundColor: '#E9F6FE',
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    color: '#00BCD4',
-    fontSize: 20,
-    fontWeight: 480,
-  },
-  passwordWrapper: {
-    backgroundColor: '#E9F6FE',
-    borderRadius: 14,
-    paddingLeft: 16,
-    paddingRight: 12,
+  brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
   },
-  passwordInput: {
-    flex: 1,
-    paddingVertical: 14,
-    color: '#13CAD6',
-    fontSize: 20,
-    fontWeight: 500,
-  },
-  eyeIcon: {
-    fontSize: 24,
-    color: '#4A4A4A',
-  },
-  forgot: {
-    marginTop: 10,
-    alignSelf: 'flex-end',
-    color: '#13CAD6',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  loginOuter: {
-    alignItems: 'center',
-    marginTop: 40,
-  },
-  loginButton: {
-    width: 220,
-    borderRadius: 28,
-    alignItems: 'center',
-    paddingVertical: 6,
-    color: '#33E4DB',
-  },
-  loginText: {
+  brandName: {
+    fontFamily: fonts.bold,
+    fontSize: 16,
     color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: '600',
   },
-
-   signupRow: {
-    marginTop: 48,
-     flexDirection: 'row',
+  eye: {
+    position: 'absolute',
+    top: 64,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  lidTag: {
+    position: 'absolute',
+    top: 162,
+    left: '50%',
+    marginLeft: 47,
+    height: 28,
+    paddingHorizontal: 11,
+    borderRadius: radii.pill,
+    backgroundColor: colors.roseTint,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  lidDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#D8604A',
+  },
+  lidTagText: {
+    fontFamily: fonts.semibold,
+    fontSize: 12,
+    color: colors.roseInkDark,
+  },
+  heroTitle: {
+    fontFamily: fonts.bold,
+    fontSize: 20,
+    lineHeight: 25,
+    letterSpacing: -0.3,
+    color: '#FFFFFF',
+  },
+  intro: {
+    gap: 6,
+  },
+  form: {
+    gap: 14,
+  },
+  link: {
+    fontFamily: fonts.semibold,
+    fontSize: 14,
+    color: colors.primary,
+  },
+  signupRow: {
+    marginTop: 'auto',
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  signupText: {
-    color: '#444',
-    fontSize: 16,
-  },
-  signupLink: {
-    color: '#13CAD6',
-    fontWeight: '700',
+    gap: 6,
   },
 });

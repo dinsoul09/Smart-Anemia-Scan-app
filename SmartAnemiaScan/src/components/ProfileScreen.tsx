@@ -5,7 +5,10 @@ import {
   ActivityIndicator,
   Platform,
   AppState,
+  Linking,
+  StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as SecureStore from 'expo-secure-store';
 import { getProfileInfo, updateProfile, ProfileInfo, UpdateProfileDto } from '../api/ProfileApi';
 
@@ -13,8 +16,15 @@ import ProfileView from './profile/ProfileView';
 import ProfileEdit from './profile/ProfileEdit';
 import SuccessModal from '../modals/SuccessModal/SuccessModal';
 import ErrorModal from '../modals/ErrorModal/ErrorModal';
+import { getLegal } from '../api/authApi';
+import { colors } from '../theme';
 
-const ProfileScreen = () => {
+interface ProfileScreenProps {
+  onLogout: () => void;
+  onOpenHelp: () => void;
+}
+
+const ProfileScreen = ({ onLogout, onOpenHelp }: ProfileScreenProps) => {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<ProfileInfo | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -24,6 +34,13 @@ const ProfileScreen = () => {
   const [successVisible, setSuccessVisible] = useState(false);
   const [errorVisible, setErrorVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [policyUrl, setPolicyUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    getLegal()
+      .then((legal) => setPolicyUrl(legal.policyUrl))
+      .catch(() => setPolicyUrl(null));
+  }, []);
 
   useEffect(() => {
     loadProfile();
@@ -101,13 +118,14 @@ const ProfileScreen = () => {
   if (loading && !profile) {
     return (
       <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#00BBD3" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.ground} />
       {isEditing ? (
         <ProfileEdit 
           profile={profile} 
@@ -116,9 +134,12 @@ const ProfileScreen = () => {
           loading={loading}
         />
       ) : (
-        <ProfileView 
-          profile={profile} 
-          onEdit={() => setIsEditing(true)} 
+        <ProfileView
+          profile={profile}
+          onEdit={() => setIsEditing(true)}
+          onLogout={onLogout}
+          onOpenHelp={onOpenHelp}
+          onOpenPrivacy={policyUrl ? () => Linking.openURL(policyUrl) : undefined}
         />
       )}
 
@@ -132,16 +153,18 @@ const ProfileScreen = () => {
         errorMessage={errorMessage}
         onClose={() => setErrorVisible(false)}
       />
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.ground,
   },
   loaderContainer: {
     flex: 1,
+    backgroundColor: colors.ground,
     justifyContent: 'center',
     alignItems: 'center',
     minHeight: 300,

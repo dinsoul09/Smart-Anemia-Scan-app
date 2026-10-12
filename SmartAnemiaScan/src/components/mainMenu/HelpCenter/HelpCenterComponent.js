@@ -1,319 +1,190 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Linking, ScrollView } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, Linking, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import Group95 from '../../../assets/Group95.svg';
-import Vector from '../../../assets/Vector.svg';
+import { IconButton } from '../../ui';
+import { colors, fonts, radii, type } from '../../../theme';
 
-const CONTACT_CHANNELS = [
-  { key: 'whatsapp', label: 'WhatsApp', value: '+7 775 009 76 57', icon: 'message-circle', color: '#25D366' },
-  { key: 'email', label: 'Email', value: 'karim.abrakhmanov123@mail.ru', icon: 'mail', color: '#00BBD3' },
-  { key: 'phone', label: 'Phone', value: '+7 775 009 76 57', icon: 'phone', color: '#6C63FF' },
+// Support channels. A channel shows up only once it has a real value here.
+const SUPPORT = {
+  whatsapp: null, // e.g. '77001234567' (digits only, with country code)
+  email: null, // e.g. 'support@example.kz'
+  phone: null, // e.g. '+77001234567'
+};
+
+const CHANNELS = [
+  { key: 'whatsapp', label: 'WhatsApp', icon: 'message-circle', url: (v) => `https://wa.me/${v}` },
+  { key: 'email', label: 'Email', icon: 'mail', url: (v) => `mailto:${v}` },
+  { key: 'phone', label: 'Call', icon: 'phone', url: (v) => `tel:${v}` },
+].filter((c) => SUPPORT[c.key]);
+
+const FAQ = [
+  {
+    q: 'How does the scan work?',
+    a: 'The app looks at the colour of your inner lower eyelid. Pale tissue there can be a sign of low haemoglobin, so we flag it and suggest a blood test.',
+  },
+  {
+    q: 'How accurate is the result?',
+    a: 'The model is still being validated clinically. Treat a moderate or high result as a reason to get a complete blood count, not as a diagnosis.',
+  },
+  {
+    q: 'Why does lighting matter?',
+    a: 'The result depends on colour, and yellow lamps or shadows change how the eyelid looks to the camera. Scan in bright, even daylight for results you can compare week to week.',
+  },
+  {
+    q: 'Is my data private?',
+    a: 'Only the part of the eyelid you outline is sent for analysis, not the whole photo. Your scans are visible only in your account. See the Privacy Policy in Profile for details.',
+  },
 ];
 
-const FAQ_ITEMS = [
-  { key: 'faq1', question: 'How does the scan work?', answer: 'Our AI analyzes the color of your lower eyelid conjunctiva to detect signs of anemia with high accuracy.' },
-  { key: 'faq2', question: 'Is my data secure?', answer: 'Yes! All your health data is encrypted and stored securely. We never share your information with third parties.' },
-  { key: 'faq3', question: 'How accurate is the result?', answer: 'Our model achieves over 75% accuracy. However, always consult a healthcare professional for a definitive diagnosis.' },
-];
-
-function AnimatedCard({ children, delay = 0, style }) {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(20)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 500,
-        delay,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 500,
-        delay,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
-
+function FaqItem({ item, open, onToggle, last }) {
   return (
-    <Animated.View style={[style, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-      {children}
-    </Animated.View>
+    <View style={[styles.faqItem, !last && styles.faqDivider]}>
+      <Pressable
+        onPress={onToggle}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        style={styles.faqQuestion}
+      >
+        <Text style={styles.faqQuestionText}>{item.q}</Text>
+        <Feather name={open ? 'chevron-up' : 'chevron-down'} size={20} color={colors.muted} />
+      </Pressable>
+      {open ? <Text style={styles.faqAnswer}>{item.a}</Text> : null}
+    </View>
   );
 }
 
-export default function HelpCenterComponent() {
-  const [expandedChannel, setExpandedChannel] = useState(null);
-  const [expandedFaq, setExpandedFaq] = useState(null);
-
-  const handleToggleChannel = (channelKey) => {
-    setExpandedChannel((prev) => (prev === channelKey ? null : channelKey));
-  };
-
-  const handleToggleFaq = (faqKey) => {
-    setExpandedFaq((prev) => (prev === faqKey ? null : faqKey));
-  };
+export default function HelpCenterComponent({ onBack }) {
+  const [openIndex, setOpenIndex] = useState(0);
 
   return (
-    <ScrollView 
-      style={styles.wrapper} 
-      contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Background Logo */}
-      <View style={styles.bgLogoWrap}>
-        <Vector width={280} height={280} style={styles.bgLogo} />
-      </View>
-      {/* Contact Section */}
-      <AnimatedCard delay={100}>
-        <Text style={styles.sectionTitle}>Get in Touch</Text>
-        <Text style={styles.sectionSubtitle}>Choose your preferred way to reach us</Text>
-      </AnimatedCard>
-
-      <View style={styles.channelsGrid}>
-        {CONTACT_CHANNELS.map((channel, index) => {
-          const isExpanded = expandedChannel === channel.key;
-
-          return (
-            <AnimatedCard key={channel.key} delay={200 + index * 100} style={styles.channelCardOuter}>
-              <TouchableOpacity
-                style={[styles.channelCard, isExpanded && styles.channelCardActive]}
-                onPress={() => handleToggleChannel(channel.key)}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.channelIconCircle, { backgroundColor: channel.color + '18' }]}>
-                  <Feather name={channel.icon} size={22} color={channel.color} />
-                </View>
-                <Text style={styles.channelLabel}>{channel.label}</Text>
-                <Feather
-                  name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                  size={18}
-                  color="#A0AEC0"
-                />
-              </TouchableOpacity>
-
-              {isExpanded && (
-                <View style={styles.channelValueWrap}>
-                  <LinearGradient
-                    colors={[channel.color + '12', channel.color + '06']}
-                    style={styles.channelValueCard}
-                  >
-                    <Text style={[styles.channelValueText, { color: channel.color }]}>{channel.value}</Text>
-                  </LinearGradient>
-                </View>
-              )}
-            </AnimatedCard>
-          );
-        })}
-      </View>
-
-      {/* FAQ Section */}
-      <AnimatedCard delay={600}>
-        <View style={styles.faqHeader}>
-          <View style={styles.faqIconWrap}>
-            <Feather name="help-circle" size={18} color="#00BBD3" />
-          </View>
-          <Text style={styles.sectionTitle}>FAQ</Text>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.ground} />
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <View style={styles.header}>
+          {onBack ? <IconButton icon="chevron-left" accessibilityLabel="Back" onPress={onBack} /> : null}
         </View>
-      </AnimatedCard>
 
-      {FAQ_ITEMS.map((faq, index) => {
-        const isExpanded = expandedFaq === faq.key;
+        <View style={styles.intro}>
+          <Text style={type.title} accessibilityRole="header">Help</Text>
+          <Text style={type.bodyMuted}>Questions about scans or your account</Text>
+        </View>
 
-        return (
-          <AnimatedCard key={faq.key} delay={700 + index * 100} style={styles.faqCardOuter}>
-            <TouchableOpacity
-              style={[styles.faqCard, isExpanded && styles.faqCardActive]}
-              onPress={() => handleToggleFaq(faq.key)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.faqQuestionRow}>
-                <View style={styles.faqDot} />
-                <Text style={styles.faqQuestion}>{faq.question}</Text>
-                <Feather
-                  name={isExpanded ? 'minus' : 'plus'}
-                  size={18}
-                  color={isExpanded ? '#00BBD3' : '#A0AEC0'}
-                />
-              </View>
+        {CHANNELS.length > 0 ? (
+          <View style={styles.channels}>
+            {CHANNELS.map((c) => (
+              <Pressable
+                key={c.key}
+                onPress={() => Linking.openURL(c.url(SUPPORT[c.key]))}
+                accessibilityRole="link"
+                style={({ pressed }) => [styles.channel, pressed && styles.pressed]}
+              >
+                <View style={styles.channelIcon}>
+                  <Feather name={c.icon} size={22} color={colors.primary} />
+                </View>
+                <Text style={styles.channelLabel}>{c.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
 
-              {isExpanded && (
-                <Text style={styles.faqAnswer}>{faq.answer}</Text>
-              )}
-            </TouchableOpacity>
-          </AnimatedCard>
-        );
-      })}
-    </ScrollView>
+        <Text style={[type.section, styles.sectionTitle]}>Common questions</Text>
+        <View style={styles.faq}>
+          {FAQ.map((item, i) => (
+            <FaqItem
+              key={item.q}
+              item={item}
+              open={openIndex === i}
+              onToggle={() => setOpenIndex(openIndex === i ? -1 : i)}
+              last={i === FAQ.length - 1}
+            />
+          ))}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
+  container: {
     flex: 1,
+    backgroundColor: colors.ground,
   },
-  scrollContent: {
-    paddingBottom: 40,
+  scroll: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 24,
+    gap: 16,
   },
-  bgLogoWrap: {
-    position: 'absolute',
-    bottom: 20,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    opacity: 0.06,
-    zIndex: -1,
+  header: {
+    minHeight: 44,
   },
-  bgLogo: {
-    opacity: 0.06,
+  intro: {
+    gap: 2,
+    paddingHorizontal: 4,
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1A202C',
-    letterSpacing: 0.3,
-  },
-  sectionSubtitle: {
-    fontSize: 13,
-    color: '#8899A6',
-    marginTop: 4,
-    marginBottom: 16,
-    letterSpacing: 0.2,
-  },
-  channelsGrid: {
+  channels: {
+    flexDirection: 'row',
     gap: 10,
-    marginBottom: 28,
   },
-  channelCardOuter: {
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  channelCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: '#EDF2F7',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  channelCardActive: {
-    borderColor: '#00BBD3',
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
-    borderBottomWidth: 0,
-  },
-  channelIconCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-  },
-  channelLabel: {
+  channel: {
     flex: 1,
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#2D3748',
-    letterSpacing: 0.2,
-  },
-  channelValueWrap: {
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: '#00BBD3',
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
-    overflow: 'hidden',
-  },
-  channelValueCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-  },
-  channelValueText: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
-  channelActionBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  faqHeader: {
-    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderRadius: radii.xl,
+    paddingVertical: 16,
     alignItems: 'center',
     gap: 8,
-    marginBottom: 14,
   },
-  faqIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: '#E6FBFC',
+  channelIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: radii.md,
+    backgroundColor: colors.primaryTint,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  faqCardOuter: {
-    marginBottom: 10,
+  channelLabel: {
+    fontFamily: fonts.semibold,
+    fontSize: 14,
+    color: colors.ink,
   },
-  faqCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    paddingVertical: 14,
+  pressed: {
+    opacity: 0.7,
+  },
+  sectionTitle: {
+    paddingHorizontal: 4,
+    marginTop: 4,
+  },
+  faq: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.xl,
     paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: '#EDF2F7',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 1,
   },
-  faqCardActive: {
-    borderColor: '#B2F5EA',
-    backgroundColor: '#F7FFFE',
+  faqItem: {
+    paddingVertical: 4,
   },
-  faqQuestionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  faqDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#00BBD3',
-    marginRight: 12,
+  faqDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
   },
   faqQuestion: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  faqQuestionText: {
     flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#2D3748',
-    lineHeight: 20,
+    fontFamily: fonts.semibold,
+    fontSize: 15,
+    color: colors.ink,
   },
   faqAnswer: {
-    marginTop: 10,
-    marginLeft: 18,
-    fontSize: 13,
-    color: '#718096',
-    lineHeight: 20,
-    letterSpacing: 0.2,
+    fontFamily: fonts.regular,
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.muted,
+    paddingBottom: 14,
   },
 });

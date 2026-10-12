@@ -1,13 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Platform } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, Text, StyleSheet, Pressable, Alert, ActivityIndicator, StatusBar } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
-import * as SecureStore from 'expo-secure-store';
 import { Feather } from '@expo/vector-icons';
+import Svg, { Path } from 'react-native-svg';
 import { uploadAnemiaPhoto } from '../../../api/anemiaApi';
-import ScanGuideModal from './ScanGuideModal';
-import ScanResultModal from './ScanResultModal';
+import { getAccessToken } from '../../../api/tokenStorage';
+import { IconButton } from '../../ui';
+import { colors, fonts, radii } from '../../../theme';
 import ConjunctivaMaskEditor from './ConjunctivaMaskEditor';
 import { maskConjunctiva, prepareScanPhoto } from '../../../utils/conjunctivaMask';
 import { validateOutline } from '../../../utils/conjunctivaMask.shared';
@@ -24,13 +25,30 @@ const getUploadErrorText = (error, fallback) => {
     : 'Too many scans in a row. Please wait a minute and try again.';
 };
 
-export default function ScanComponent({ onGoBack }) {
+// Almond eye outline with the lower lid dashed in rose and mint corner marks
+function EyeFrame() {
+  return (
+    <Svg width={330} height={200} viewBox="0 0 330 200">
+      <Path d="M14 96C80 14 250 14 316 96C250 178 80 178 14 96Z" stroke="#FFFFFF" strokeWidth={2.5} fill="none" />
+      <Path d="M52 132C110 186 220 186 278 132" stroke={colors.roseLight} strokeWidth={3} strokeDasharray="8 8" strokeLinecap="round" fill="none" />
+      <Path
+        d="M8 40V18a10 10 0 0 1 10-10h22M290 8h22a10 10 0 0 1 10 10v22M322 160v22a10 10 0 0 1-10 10h-22M40 192H18a10 10 0 0 1-10-10v-22"
+        stroke={colors.mint}
+        strokeWidth={3}
+        strokeLinecap="round"
+        fill="none"
+      />
+    </Svg>
+  );
+}
+
+// Camera step of the scan: capture or pick a photo, outline the conjunctiva, upload.
+// The finished prediction goes to `onResult`; the parent shows the result screen.
+export default function ScanComponent({ onGoBack, onOpenGuide, onResult }) {
+  const insets = useSafeAreaInsets();
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [isUploading, setIsUploading] = useState(false);
   const [scanStatusText, setScanStatusText] = useState('');
-  const [isScanGuideVisible, setIsScanGuideVisible] = useState(false);
-  const [predictionResult, setPredictionResult] = useState(null);
-  const [isResultModalVisible, setIsResultModalVisible] = useState(false);
   const [facing, setFacing] = useState('back');
   // Photo waiting for the user to outline the conjunctiva; only the outlined area is uploaded
   const [photoToMask, setPhotoToMask] = useState(null);
@@ -47,14 +65,7 @@ export default function ScanComponent({ onGoBack }) {
   }, [cameraPermission?.granted, requestCameraPermission]);
 
   const uploadEyePhoto = async (photoUri, fileName) => {
-    let token = null;
-
-    if (Platform.OS === 'web') {
-      token = localStorage.getItem('userToken');
-    } else {
-      token = await SecureStore.getItemAsync('userToken');
-    }
-
+    const token = await getAccessToken();
     if (!token) {
       throw new Error('User token not found');
     }
@@ -75,10 +86,9 @@ export default function ScanComponent({ onGoBack }) {
       const masked = await maskConjunctiva(photoToMask, points);
       const predictionData = await uploadEyePhoto(masked.uri, masked.fileName);
       setPhotoToMask(null);
-      setPredictionResult(predictionData);
       setScanStatusText('');
-      // iOS cannot present a modal while the editor modal is still sliding away
-      setTimeout(() => setIsResultModalVisible(true), 400);
+      // Let the editor modal slide away before the result screen replaces the camera
+      setTimeout(() => onResult(predictionData), 400);
     } catch (error) {
       if (error?.response?.status === 400) {
         // The backend rejected the image format (outline size, resolution): its text is meant for the user.
@@ -158,70 +168,65 @@ export default function ScanComponent({ onGoBack }) {
   };
 
   return (
-    <View style={styles.scanContainer}>
-      <View style={styles.scanPreview}>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.cameraBg} />
+      <View style={styles.preview}>
         {cameraPermission?.granted ? (
-          <CameraView
-            ref={cameraRef}
-            style={StyleSheet.absoluteFillObject}
-            facing={facing}
-            ratio="16:9"
-          />
+          <CameraView ref={cameraRef} style={StyleSheet.absoluteFillObject} facing={facing} ratio="16:9" />
         ) : (
           <View style={styles.cameraFallback}>
-            <Text style={styles.scanHintText}>Camera permission is needed to use live scan.</Text>
+            <Text style={styles.fallbackText}>Allow camera access to scan your eyelid.</Text>
           </View>
         )}
-        <View style={styles.scanOverlay} />
-        <TouchableOpacity
-          style={styles.scanBackButton}
-          activeOpacity={0.8}
-          onPress={onGoBack}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <Feather name="chevron-left" size={28} color="#FFFFFF" />
-        </TouchableOpacity>
-        <View style={styles.scanFrame}>
-          <View style={[styles.scanCorner, styles.scanCornerTopLeft]} />
-          <View style={[styles.scanCorner, styles.scanCornerTopRight]} />
-          <View style={[styles.scanCorner, styles.scanCornerBottomLeft]} />
-          <View style={[styles.scanCorner, styles.scanCornerBottomRight]} />
-        </View>
-        <Text style={styles.scanHintText}>Place eye and lower eyelid inside the frame</Text>
-        {scanStatusText ? <Text style={styles.scanStatusText}>{scanStatusText}</Text> : null}
       </View>
 
-      <View style={styles.scanControls}>
-        <TouchableOpacity style={styles.scanGuideButton} activeOpacity={0.8} onPress={() => setIsScanGuideVisible(true)}>
-          <Feather name="file-text" size={16} color="#FFFFFF" />
-          <Text style={styles.scanGuideText}>Scan Guide</Text>
-        </TouchableOpacity>
+      <View style={[styles.topBar, { top: insets.top + 8 }]}>
+        <IconButton icon="x" tone="glass" round accessibilityLabel="Close camera" onPress={onGoBack} />
+        <Pressable onPress={onOpenGuide} accessibilityRole="button" style={styles.guidePill}>
+          <Feather name="info" size={18} color="#FFFFFF" />
+          <Text style={styles.guidePillText}>How to scan</Text>
+        </Pressable>
+        <View style={styles.topBarSpacer} />
+      </View>
 
-        <View style={styles.captureRow}>
-          <TouchableOpacity style={styles.galleryButton} activeOpacity={0.9} onPress={handlePickFromGallery}>
-            <Feather name="image" size={22} color="#FFFFFF" />
-          </TouchableOpacity>
+      <View style={[styles.frameArea, { top: insets.top + 112 }]} pointerEvents="none">
+        <View style={styles.lidHint}>
+          <Feather name="arrow-down" size={18} color={colors.roseInkDark} />
+          <Text style={styles.lidHintText}>Pull your lower eyelid down</Text>
+        </View>
+        <EyeFrame />
+      </View>
 
-          <TouchableOpacity activeOpacity={0.9} onPress={handleCapturePhoto}>
-            <LinearGradient colors={['#33E4DB', '#00BBD3']} style={styles.captureButton}>
-              {isUploading ? <ActivityIndicator size="large" color="#FFFFFF" /> : <View style={styles.captureButtonInner} />}
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-             style={styles.scanFlipButton} 
-             activeOpacity={0.8} 
-             onPress={() => setFacing(current => (current === 'back' ? 'front' : 'back'))}
+      <View style={[styles.bottomPanel, { paddingBottom: insets.bottom + 28 }]}>
+        <Text style={styles.panelHint} accessibilityLiveRegion="polite">
+          {scanStatusText || 'Place your eye and lower eyelid inside the frame'}
+        </Text>
+        <View style={styles.controls}>
+          <IconButton
+            icon="image"
+            tone="glass"
+            accessibilityLabel="Choose from gallery"
+            onPress={handlePickFromGallery}
+            style={styles.sideButton}
+          />
+          <Pressable
+            onPress={handleCapturePhoto}
+            accessibilityRole="button"
+            accessibilityLabel="Take photo"
+            disabled={isUploading}
+            style={({ pressed }) => [styles.shutter, pressed && styles.shutterPressed]}
           >
-            <Feather name="refresh-cw" size={22} color="#FFFFFF" />
-          </TouchableOpacity>
+            {isUploading ? <ActivityIndicator color="#FFFFFF" /> : <View style={styles.shutterInner} />}
+          </Pressable>
+          <IconButton
+            icon="refresh-cw"
+            tone="glass"
+            accessibilityLabel="Switch camera"
+            onPress={() => setFacing((current) => (current === 'back' ? 'front' : 'back'))}
+            style={styles.sideButton}
+          />
         </View>
       </View>
-
-      <ScanGuideModal
-        visible={isScanGuideVisible}
-        onClose={() => setIsScanGuideVisible(false)}
-      />
 
       <ConjunctivaMaskEditor
         photo={photoToMask}
@@ -230,176 +235,120 @@ export default function ScanComponent({ onGoBack }) {
         onRetake={closeMaskEditor}
         onConfirm={handleConfirmMask}
       />
-
-      <ScanResultModal
-        visible={isResultModalVisible}
-        result={predictionResult}
-        onClose={() => setIsResultModalVisible(false)}
-      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scanContainer: {
+  container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: colors.cameraBg,
   },
-  scanPreview: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#4E4E4E',
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scanOverlay: {
+  preview: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.26)',
+    backgroundColor: colors.cameraPreview,
   },
   cameraFallback: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#4E4E4E',
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 32,
   },
-  scanBackButton: {
-    position: 'absolute',
-    top: 28,
-    left: 14,
-    zIndex: 3,
-    elevation: 6,
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(0, 187, 211, 0.42)',
-    borderWidth: 1,
-    borderColor: '#33E4DB',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scanFlipButton: {
-    position: 'absolute',
-    right: 8,
-    width: 52,
-    height: 52,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#33E4DB',
-    backgroundColor: 'rgba(0, 187, 211, 0.42)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scanFrame: {
-    width: 230,
-    height: 230,
-    borderRadius: 24,
-  },
-  scanCorner: {
-    position: 'absolute',
-    width: 44,
-    height: 44,
-    borderColor: '#FFFFFF',
-    borderWidth: 6,
-    borderRadius: 14,
-  },
-  scanCornerTopLeft: {
-    top: 0,
-    left: 0,
-    borderRightWidth: 0,
-    borderBottomWidth: 0,
-  },
-  scanCornerTopRight: {
-    top: 0,
-    right: 0,
-    borderLeftWidth: 0,
-    borderBottomWidth: 0,
-  },
-  scanCornerBottomLeft: {
-    bottom: 0,
-    left: 0,
-    borderRightWidth: 0,
-    borderTopWidth: 0,
-  },
-  scanCornerBottomRight: {
-    bottom: 0,
-    right: 0,
-    borderLeftWidth: 0,
-    borderTopWidth: 0,
-  },
-  scanHintText: {
-    position: 'absolute',
-    bottom: 198,
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
+  fallbackText: {
+    fontFamily: fonts.medium,
+    fontSize: 15,
+    color: '#B8C6C2',
     textAlign: 'center',
-    paddingHorizontal: 22,
   },
-  scanStatusText: {
-    position: 'absolute',
-    bottom: 172,
-    color: '#E9F6FE',
-    fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'center',
-    paddingHorizontal: 26,
-  },
-  scanControls: {
+  topBar: {
     position: 'absolute',
     left: 20,
     right: 20,
-    bottom: 34,
-    alignItems: 'center',
-  },
-  captureRow: {
-    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
   },
-  galleryButton: {
+  topBarSpacer: {
+    width: 44,
+  },
+  guidePill: {
+    height: 40,
+    paddingHorizontal: 16,
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  guidePillText: {
+    fontFamily: fonts.semibold,
+    fontSize: 14,
+    color: '#FFFFFF',
+  },
+  frameArea: {
     position: 'absolute',
-    left: 8,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    gap: 18,
+  },
+  lidHint: {
+    height: 36,
+    paddingHorizontal: 14,
+    borderRadius: radii.pill,
+    backgroundColor: colors.roseTint,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  lidHintText: {
+    fontFamily: fonts.semibold,
+    fontSize: 14,
+    color: colors.roseInkDark,
+  },
+  bottomPanel: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingTop: 22,
+    paddingHorizontal: 32,
+    backgroundColor: colors.cameraBg,
+    gap: 22,
+  },
+  panelHint: {
+    fontFamily: fonts.regular,
+    fontSize: 14,
+    color: '#B8C6C2',
+    textAlign: 'center',
+  },
+  controls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sideButton: {
     width: 52,
     height: 52,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#33E4DB',
-    backgroundColor: 'rgba(0, 187, 211, 0.42)',
+    borderRadius: radii.lg,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  shutter: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 4,
+    borderColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  captureButton: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 8,
+  shutterPressed: {
+    opacity: 0.8,
   },
-  captureButtonInner: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+  shutterInner: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
     backgroundColor: '#FFFFFF',
-  },
-  scanGuideButton: {
-    marginBottom: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(0, 187, 211, 0.3)',
-    borderWidth: 1,
-    borderColor: '#33E4DB',
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  scanGuideText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
   },
 });

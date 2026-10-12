@@ -54,6 +54,16 @@ export interface UpdateProfileDto {
  * Fetches user profile and scan history
  * @param token - Authorization Bearer token
  */
+// Sex is kept as '0' (male) / '1' (female) in the app; the backend serialises the enum by name
+const SEX_CODES: Record<string, string> = { Male: '0', Female: '1', '0': '0', '1': '1' };
+
+const normalizeSex = (sex: unknown): string | null =>
+  sex === null || sex === undefined ? null : SEX_CODES[String(sex)] ?? null;
+
+/**
+ * Fetches user profile and scan history
+ * @param token - Authorization Bearer token
+ */
 export const getProfileInfo = async (token: string): Promise<ProfileResponse> => {
   try {
     const response = await apiClient.get('/Profile/info', {
@@ -61,7 +71,17 @@ export const getProfileInfo = async (token: string): Promise<ProfileResponse> =>
         'Authorization': `Bearer ${token}`
       }
     });
-    return response.data;
+    // Since the backend's profile DTO change the fields come flat (`birthday`, `sex: "Female"`)
+    // instead of under `profile`; older servers still send the wrapped shape
+    const raw = response.data?.profile ?? response.data ?? {};
+    return {
+      profile: {
+        ...raw,
+        birthDate: raw.birthDate ?? raw.birthday ?? null,
+        sex: normalizeSex(raw.sex),
+        anemiaScans: raw.anemiaScans ?? [],
+      },
+    };
   } catch (error) {
     console.error("Fetch profile error", error);
     throw error;
@@ -75,7 +95,9 @@ export const getProfileInfo = async (token: string): Promise<ProfileResponse> =>
  */
 export const updateProfile = async (token: string, data: UpdateProfileDto) => {
   try {
-    const response = await apiClient.patch('/Profile', data, {
+    // The backend enum accepts the numeric value; '0'/'1' strings are not guaranteed to parse
+    const body = { ...data, sex: data.sex === undefined || data.sex === null ? data.sex : Number(data.sex) };
+    const response = await apiClient.patch('/Profile', body, {
       headers: {
         'Authorization': `Bearer ${token}`
       }

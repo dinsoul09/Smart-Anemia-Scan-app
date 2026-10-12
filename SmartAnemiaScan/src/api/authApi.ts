@@ -2,6 +2,8 @@ import axios from "axios";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://api-anemiascan.ru';
 axios.defaults.baseURL = API_URL;
+// Scan uploads go through the global axios too, so this also bounds them; same reason as in apiClient
+axios.defaults.timeout = 30000;
 
 interface LoginResponse {
   tokenRecord: {
@@ -176,4 +178,4 @@ export const signOut = async (token: string): Promise<void> => {
     // Silently ignore — we still clear local token regardless
     console.warn('Sign-out API call failed (will still clear local token):', error);
   }
-};
+};

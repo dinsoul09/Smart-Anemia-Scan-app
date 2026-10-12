@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Image, PanResponder, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Modal, Image, PanResponder } from 'react-native';
 import Svg, { Polygon } from 'react-native-svg';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Button } from '../../ui';
+import { colors, fonts } from '../../../theme';
 
 // How close (in screen points) a touch must be to a handle to grab it instead of moving the whole outline
 const HANDLE_GRAB_RADIUS = 28;
@@ -127,8 +128,8 @@ export default function ConjunctivaMaskEditor({ photo, isSubmitting, errorText, 
               <Svg style={StyleSheet.absoluteFill}>
                 <Polygon
                   points={screenPoints.map((p) => `${p.x},${p.y}`).join(' ')}
-                  fill="rgba(51, 228, 219, 0.18)"
-                  stroke="#33E4DB"
+                  fill="rgba(126, 211, 184, 0.18)"
+                  stroke={colors.mint}
                   strokeWidth={2}
                 />
               </Svg>
@@ -143,24 +144,14 @@ export default function ConjunctivaMaskEditor({ photo, isSubmitting, errorText, 
         {errorText ? <Text style={styles.errorText}>{errorText}</Text> : null}
 
         <View style={styles.actions}>
-          <TouchableOpacity style={styles.secondaryButton} activeOpacity={0.8} onPress={onRetake} disabled={isSubmitting}>
-            <Text style={styles.secondaryButtonText}>Retake</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.primaryButton}
-            activeOpacity={0.8}
+          <Button title="Retake" variant="secondary" onPress={onRetake} disabled={isSubmitting} style={styles.action} />
+          <Button
+            title="Analyse"
             onPress={() => onConfirm(points)}
-            disabled={isSubmitting || points.length === 0}
-          >
-            <LinearGradient colors={['#33E4DB', '#00BBD3']} style={styles.primaryButtonFill}>
-              {isSubmitting ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.primaryButtonText}>Analyse</Text>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
+            loading={isSubmitting}
+            disabled={points.length === 0}
+            style={styles.action}
+          />
         </View>
       </View>
     </Modal>
@@ -170,19 +161,21 @@ export default function ConjunctivaMaskEditor({ photo, isSubmitting, errorText, 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: colors.cameraBg,
     paddingTop: 56,
     paddingBottom: 34,
   },
   title: {
+    fontFamily: fonts.bold,
     color: '#FFFFFF',
     fontSize: 20,
-    fontWeight: '700',
     textAlign: 'center',
   },
   subtitle: {
-    color: '#E9F6FE',
+    fontFamily: fonts.regular,
+    color: '#B8C6C2',
     fontSize: 14,
+    lineHeight: 20,
     textAlign: 'center',
     paddingHorizontal: 24,
     marginTop: 8,
@@ -199,12 +192,12 @@ const styles = StyleSheet.create({
     borderRadius: HANDLE_SIZE / 2,
     backgroundColor: '#FFFFFF',
     borderWidth: 2,
-    borderColor: '#00BBD3',
+    borderColor: colors.primary,
   },
   errorText: {
-    color: '#FF8A80',
+    fontFamily: fonts.semibold,
+    color: '#FF9E8A',
     fontSize: 14,
-    fontWeight: '600',
     textAlign: 'center',
     paddingHorizontal: 24,
     paddingTop: 12,
@@ -215,35 +208,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 16,
   },
-  secondaryButton: {
+  action: {
     flex: 1,
-    height: 52,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#33E4DB',
-    backgroundColor: 'rgba(0, 187, 211, 0.3)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  secondaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  primaryButton: {
-    flex: 1,
-    height: 52,
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  primaryButtonFill: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
   },
 });
