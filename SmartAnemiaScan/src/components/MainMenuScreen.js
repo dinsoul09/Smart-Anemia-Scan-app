@@ -11,6 +11,7 @@ import HelpCenterComponent from './mainMenu/HelpCenter/HelpCenterComponent';
 import ScanComponent from './mainMenu/Scan/ScanComponent';
 import ScanGuideScreen, { shouldSkipScanGuide } from './scan/ScanGuideScreen';
 import ResultScreen from './scan/ResultScreen';
+import LabHemoglobinScreen from './scan/LabHemoglobinScreen';
 import { BottomNav } from './ui';
 import { signOut } from '../api/authApi';
 import { colors } from '../theme';
@@ -19,7 +20,7 @@ import { colors } from '../theme';
 // (scan guide → camera → result, help) that cover the bar while open.
 export default function MainMenuScreen({ onLogout }) {
   const [activeTab, setActiveTab] = useState('home');
-  // null | { name: 'guide' | 'camera' | 'help' } | { name: 'result', scan, disclaimer, canScanAgain }
+  // null | { name: 'guide' | 'camera' | 'help' } | { name: 'result' | 'labHemoglobin', scan, disclaimer, canScanAgain, justSaved }
   const [overlay, setOverlay] = useState(null);
   // Bumped after a new scan so tabs reload their data
   const [dataVersion, setDataVersion] = useState(0);
@@ -76,8 +77,32 @@ export default function MainMenuScreen({ onLogout }) {
       <ResultScreen
         scan={overlay.scan}
         disclaimer={overlay.disclaimer}
+        justSaved={overlay.justSaved}
         onClose={() => setOverlay(null)}
         onScanAgain={overlay.canScanAgain ? startScan : undefined}
+        onAddLab={() => setOverlay({ ...overlay, name: 'labHemoglobin', justSaved: false })}
+      />
+    );
+  }
+  if (overlay?.name === 'labHemoglobin') {
+    const backToResult = (patch = {}) =>
+      setOverlay({ ...overlay, name: 'result', ...patch });
+    return (
+      <LabHemoglobinScreen
+        scan={overlay.scan}
+        onClose={() => backToResult()}
+        onSaved={(res) => {
+          // Tabs reload so History shows the new value
+          setDataVersion((v) => v + 1);
+          backToResult({
+            scan: { ...overlay.scan, labHemoglobin: res.labHemoglobin, labMeasuredAt: res.labMeasuredAt },
+            justSaved: true,
+          });
+        }}
+        onNotFound={() => {
+          setDataVersion((v) => v + 1);
+          setOverlay(null);
+        }}
       />
     );
   }
