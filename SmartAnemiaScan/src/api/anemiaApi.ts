@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
 import { apiClient } from './apiClient';
+import { getAccessToken } from './tokenStorage';
 
 // The backend stores the original bytes in GridFS on a remote cluster, and that upload is what
 // dominates the request (~1.6 s per megabyte measured locally). The model resizes its own input,
@@ -98,7 +99,33 @@ export interface ScanHistoryItem {
   hemoglobinLevel: number | null;
   severity: string | null;
   imageSystemId: string | null;
+  /** Haemoglobin from the user's own blood test, g/dL. Null together with `labMeasuredAt`. */
+  labHemoglobin: number | null;
+  /** Calendar date of the blood test, 'YYYY-MM-DD' */
+  labMeasuredAt: string | null;
 }
+
+export interface LabHemoglobin {
+  scanId: string;
+  labHemoglobin: number;
+  labMeasuredAt: string;
+}
+
+// Overwrites any earlier value, which is how a typo gets fixed.
+// `measuredAt` must be a plain 'YYYY-MM-DD' calendar date, never an ISO timestamp.
+export const setLabHemoglobin = async (
+  scanId: string,
+  hemoglobin: number,
+  measuredAt?: string,
+): Promise<LabHemoglobin> => {
+  const token = await getAccessToken();
+  const res = await apiClient.put(
+    `/Analysis/${scanId}/lab-hemoglobin`,
+    { hemoglobin, measuredAt },
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return res.data;
+};
 
 export interface ScanHistoryPage {
   items: ScanHistoryItem[];

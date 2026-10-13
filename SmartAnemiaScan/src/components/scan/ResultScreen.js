@@ -1,16 +1,18 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, StatusBar, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { Button, IconButton, Badge } from '../ui';
 import { assessScan, colors, fonts, radii } from '../../theme';
 import RiskGauge from './RiskGauge';
-import { FALLBACK_DISCLAIMER, formatScanDate, riskCopy } from './scanFormat';
+import { FALLBACK_DISCLAIMER, formatCalendarDate, formatScanDate, riskCopy } from './scanFormat';
 
 // Full result of one scan: a fresh prediction (`analyseDate`) or a history item (`scanDate`).
 // `disclaimer` comes from the API response; it is never hard-coded on purpose.
-export default function ResultScreen({ scan, disclaimer, onClose, onScanAgain }) {
+// `onAddLab` opens the blood-test form; `justSaved` shows a "Saved" confirmation after returning from it.
+export default function ResultScreen({ scan, disclaimer, onClose, onScanAgain, onAddLab, justSaved }) {
   const { risk, anemiaProbability } = assessScan(scan);
+  const hasLab = scan.labHemoglobin != null;
   const copy = riskCopy[risk];
   const date = scan.analyseDate ?? scan.scanDate;
 
@@ -48,6 +50,36 @@ export default function ResultScreen({ scan, disclaimer, onClose, onScanAgain })
             </View>
           ) : null}
         </View>
+
+        {onAddLab && scan.id ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={hasLab ? 'Edit blood test result' : 'Add blood test result'}
+            onPress={onAddLab}
+            style={({ pressed }) => [styles.labCard, pressed && styles.labCardPressed]}
+          >
+            <View style={[styles.tipIcon, { backgroundColor: colors.roseTint }]}>
+              <Feather name="droplet" size={17} color={colors.roseInk} />
+            </View>
+            <View style={styles.labText}>
+              {hasLab ? (
+                <>
+                  <Text style={styles.labTitle}>
+                    Blood test: {scan.labHemoglobin} g/dL
+                    {scan.labMeasuredAt ? ` · ${formatCalendarDate(scan.labMeasuredAt)}` : ''}
+                  </Text>
+                  {justSaved ? <Text style={styles.labSaved}>Saved</Text> : null}
+                </>
+              ) : (
+                <>
+                  <Text style={styles.labTitle}>Add blood test result</Text>
+                  <Text style={styles.labSub}>Had a blood test? Add your haemoglobin.</Text>
+                </>
+              )}
+            </View>
+            {hasLab ? <Text style={styles.labEdit}>Edit</Text> : <Feather name="chevron-right" size={20} color={colors.muted} />}
+          </Pressable>
+        ) : null}
 
         <View style={styles.disclaimer}>
           <Feather name="info" size={16} color="#46524E" style={styles.disclaimerIcon} />
@@ -146,6 +178,41 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: colors.ink,
     paddingTop: 6,
+  },
+  labCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.surface,
+    borderRadius: radii.xl,
+    padding: 16,
+  },
+  labCardPressed: {
+    backgroundColor: colors.divider,
+  },
+  labText: {
+    flex: 1,
+    gap: 2,
+  },
+  labTitle: {
+    fontFamily: fonts.semibold,
+    fontSize: 15,
+    color: colors.ink,
+  },
+  labSub: {
+    fontFamily: fonts.regular,
+    fontSize: 13,
+    color: colors.muted,
+  },
+  labSaved: {
+    fontFamily: fonts.medium,
+    fontSize: 13,
+    color: colors.risk.low.fg,
+  },
+  labEdit: {
+    fontFamily: fonts.semibold,
+    fontSize: 14,
+    color: colors.primary,
   },
   disclaimer: {
     flexDirection: 'row',

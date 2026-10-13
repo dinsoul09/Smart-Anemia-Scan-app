@@ -18,6 +18,19 @@ export const formatRelativeDay = (iso) => {
   return `${Math.floor(days / 30)} months ago`;
 };
 
+// Blood-test dates are calendar dates ('YYYY-MM-DD'), not instants. Parse them as local dates:
+// `new Date('2026-10-04')` is UTC midnight and shows the previous day west of Greenwich.
+export const parseCalendarDate = (value) => {
+  const [y, m, d] = value.split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+
+export const toCalendarDate = (date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+export const formatCalendarDate = (value) =>
+  parseCalendarDate(value).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
 export const percent = (fraction) => Math.round(fraction * 100);
 
 // What the result means and what to do next, per risk level. No treatment advice:
