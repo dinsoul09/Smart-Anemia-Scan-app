@@ -71,7 +71,6 @@ export default function CoursesScreen({ onStartScan }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.ground,
   },
   content: {
     paddingHorizontal: 20,
@@ -84,7 +83,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   card: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.block,
     borderRadius: radii.xxl,
     padding: 20,
     gap: 14,
@@ -111,7 +110,7 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   empty: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.block,
     borderRadius: radii.xxl,
     padding: 24,
     alignItems: 'center',

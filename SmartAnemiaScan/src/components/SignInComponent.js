@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useState } from 'react';
 
 import {
   View,
@@ -11,49 +11,73 @@ import {
   KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Feather, FontAwesome, MaterialCommunityIcons } from '@expo/vector-icons';
+import Svg, { Path } from 'react-native-svg';
 
-import ForgotPasswordShell from './ForgotPasswordShell';
-import ForgotPasswordStepContent from './ForgotPasswordStepContent';
-import ErrorModal from '../modals/ErrorModal/ErrorModal';
-import SuccessModal from '../modals/SuccessModal/SuccessModal';
+import ForgotPasswordScreen from './ForgotPasswordScreen';
 import * as SecureStore from 'expo-secure-store';
-import { loginUser, sendEmailCode, verifyRecoveryCode, resetPassword } from '../api/authApi';
-import { Button, TextField, BrandMark, EyeIllustration } from './ui';
+import { loginUser } from '../api/authApi';
+import { getProfileInfo } from '../api/ProfileApi';
+import { Button, TextField, Banner, useFeedback } from './ui';
+import { FIELD_TEXT, apiMessageKeys } from '../utils/apiErrors';
 import { colors, fonts, radii, spacing, type } from '../theme';
 
+// Multicolour Google "G" — no icon font has it
+function GoogleLogo({ size = 20 }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 48 48">
+      <Path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
+      <Path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
+      <Path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z" />
+      <Path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z" />
+    </Svg>
+  );
+}
+
+function SocialButton({ label, icon, onPress }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={({ pressed }) => [styles.social, pressed && styles.socialPressed]}
+    >
+      {icon}
+      <Text style={styles.socialText}>{label}</Text>
+    </Pressable>
+  );
+}
 
 export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
+  const { showToast, handleRequestError } = useFeedback();
 
-  const [isErrorModalVisible, setIsErrorModalVisible] = useState(false);
-  const [emailError, setEmailError] = useState(false);
-    const [codeError, setCodeError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [screenMode, setScreenMode] = useState('login');
-  const [recoveryStep, setRecoveryStep] = useState('email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [code, setCode] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [errorModalMessage, setErrorModalMessage] = useState('');
-  const [secondsLeft, setSecondsLeft] = useState(20);
 
-  const [isSuccessModalVisible, setIsSuccessModalVisible] = useState(false);
-  const [successModalMessage, setSuccessModalMessage] = useState('');
-  // Only a real login should open the main menu when the success modal closes,
-  // not a finished password reset.
-  const [successOpensApp, setSuccessOpensApp] = useState(false);
+  // Typing mistakes go under the field; a wrong email/password pair goes in a banner above the form
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [wrongCredentials, setWrongCredentials] = useState(false);
+  // Shown in the same place after a finished password reset
+  const [loginNotice, setLoginNotice] = useState('');
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      setErrorModalMessage('Please fill in all fields to log in.');
-      setIsErrorModalVisible(true);
+    setLoginNotice('');
+    const missing = {
+      email: email.trim() ? null : FIELD_TEXT.emailRequired,
+      password: password ? null : FIELD_TEXT.passwordRequired,
+    };
+    if (missing.email || missing.password) {
+      setFieldErrors(missing);
+      setWrongCredentials(false);
       return;
     }
-    
+
+    setFieldErrors({});
+    setWrongCredentials(false);
     setLoading(true);
     try {
-      const userData = await loginUser(email, password);
+      const userData = await loginUser(email.trim(), password);
       console.log('Successful login!', userData);
 
       const token = userData?.tokenRecord?.accessToken;
@@ -69,198 +93,68 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
         }
       }
 
-      setSuccessOpensApp(true);
-      setSuccessModalMessage('You have successfully logged in!');
-      setIsSuccessModalVisible(true);
+      onLoginSuccess?.();
+      greet(token);
     } catch (err) {
-      setErrorModalMessage(err.description);
-      setIsErrorModalVisible(true);
+      if (handleRequestError(err, handleLogin)) return;
+      const keys = apiMessageKeys(err);
+      if (keys.includes('emailRequired') || keys.includes('emailInvalid')) {
+        setFieldErrors({ email: FIELD_TEXT[keys.includes('emailRequired') ? 'emailRequired' : 'emailInvalid'] });
+      } else {
+        // The backend answers a wrong pair with a 500 and a description, so any other answer means the same
+        setWrongCredentials(true);
+      }
     } finally {
       setLoading(false);
     }
   };
-  useEffect(() => {
-    if (screenMode !== 'forgot' || recoveryStep !== 'code' || secondsLeft <= 0) {
-      return undefined;
+
+  // "Welcome back, Karim" toast once the name is known; the app is already open by then
+  const greet = async (token) => {
+    let firstName = '';
+    try {
+      const data = token ? await getProfileInfo(token) : null;
+      firstName = (data?.profile?.fullName || '').trim().split(/\s+/)[0];
+    } catch {
+      // The toast still shows, just without the name
     }
+    showToast({ title: firstName ? `Welcome back, ${firstName}` : 'Welcome back', text: 'You’re logged in' });
+  };
 
-    const timer = setInterval(() => {
-      setSecondsLeft((value) => value - 1);
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [screenMode, recoveryStep, secondsLeft]);
-
-  const countdownLabel = useMemo(() => {
-    const formattedSeconds = String(Math.max(secondsLeft, 0)).padStart(2, '0');
-    return `00:${formattedSeconds}`;
-  }, [secondsLeft]);
+  // The backend has no Google/Apple sign-in yet
+  const socialSoon = (provider) =>
+    showToast({ tone: 'error', title: `${provider} sign-in is coming soon`, text: 'For now, use your email and password' });
 
   const openForgotPassword = () => {
+    setWrongCredentials(false);
+    setFieldErrors({});
     setScreenMode('forgot');
-    setRecoveryStep('email');
-    setEmailError(false);
-    setCode('');
-    setCodeError(false);
-    setSecondsLeft(20);
   };
 
-  const handleRecoveryBack = () => {
-    if (recoveryStep === 'reset') {
-      setRecoveryStep('code');
-      return;
-    }
-
-    if (recoveryStep === 'code') {
-      setRecoveryStep('email');
-      setCode('');
-      setEmailError(false);
-      setCodeError(false);
-      setSecondsLeft(20);
-      return;
-    }
-
-    setScreenMode('login');
+  const editEmail = (value) => {
+    setEmail(value);
+    if (fieldErrors.email) setFieldErrors((e) => ({ ...e, email: null }));
+    if (wrongCredentials) setWrongCredentials(false);
   };
 
-  const handleSendRecovery = async () => {
-    if (recoveryStep === 'email') {
-      const isEmailValid = /^\S+@\S+\.\S+$/.test(email.trim());
-
-      if (!isEmailValid) {
-        setEmailError(true);
-        return;
-      }
-
-      setLoading(true);
-      try {
-        await sendEmailCode(email);
-        setEmailError(false);
-        setRecoveryStep('code');
-        setSecondsLeft(60); // Standard 1 min reset
-        setCodeError(false);
-      } catch (err) {
-        setErrorModalMessage('Failed to send confirmation code. Please try again.');
-        setIsErrorModalVisible(true);
-      } finally {
-        setLoading(false);
-      }
-      return;
-    }
-
-    if (recoveryStep === 'code') {
-      if (code.length < 5) {
-        setCodeError(true);
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const isValid = await verifyRecoveryCode(email, code);
-        if (isValid) {
-          setCodeError(false);
-          setRecoveryStep('reset');
-        } else {
-          setCodeError(true);
-        }
-      } catch (err) {
-        setCodeError(true);
-        setErrorModalMessage('Invalid or expired code. Please try again.');
-        setIsErrorModalVisible(true);
-      } finally {
-        setLoading(false);
-      }
-      return;
-    }
-
-    if (recoveryStep === 'reset') {
-      setLoading(true);
-      try {
-        await resetPassword({
-          email: email,
-          code: code,
-          newPassword: newPassword,
-          confirmPassword: confirmPassword
-        });
-
-        setSuccessOpensApp(false);
-        setSuccessModalMessage('Your password has been successfully reset! You can log in now.');
-        setIsSuccessModalVisible(true);
-        
-        // After success, we go back to login
-        setScreenMode('login');
-        setRecoveryStep('email');
-        setNewPassword('');
-        setConfirmPassword('');
-        setCode('');
-      } catch (err) {
-        const detail = err.response?.data?.errors["ConfirmPassword"][0] || 'Failed to update password. Please try again.';
-        setErrorModalMessage(detail);
-        setIsErrorModalVisible(true);
-      } finally {
-        setLoading(false);
-      }
-    }
+  const editPassword = (value) => {
+    setPassword(value);
+    if (fieldErrors.password) setFieldErrors((e) => ({ ...e, password: null }));
+    if (wrongCredentials) setWrongCredentials(false);
   };
-
-  const recoveryTitle = recoveryStep === 'reset' ? '' : recoveryStep === 'code' ? 'Enter Code' : 'Enter Email';
-
-  const recoveryDescription =
-    recoveryStep === 'email'
-      ? 'Enter your email address. We will send a confirmation code there.'
-      : recoveryStep === 'code'
-        ? `We sent a confirmation code to ${email || 'example@mail.com'}`
-        : null;
-
-  const actionLabel = loading ? 'Processing...' : 
-    (recoveryStep === 'email' 
-      ? 'Send Code' 
-      : recoveryStep === 'code' 
-        ? 'Verify Code'
-        : 'Update Password');
-
-  const bottomNote = recoveryStep === 'code' 
-    ? `Send code again  ${countdownLabel}` : null;
 
   if (screenMode === 'forgot') {
     return (
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.ground} />
-        <ForgotPasswordShell
-          step={recoveryStep}
-          title={recoveryTitle}
-          description={recoveryDescription}
-          bottomNote={bottomNote}
-          actionLabel={actionLabel}
-          loading={loading}
-          onBack={handleRecoveryBack}
-          onAction={loading ? null : handleSendRecovery}
-        >
-          <ForgotPasswordStepContent
-            step={recoveryStep}
-            email={email}
-            onEmailChange={(value) => {
-              setEmail(value);
-              if (emailError) {
-                setEmailError(false);
-              }
-            }}
-            emailError={emailError}
-            code={code}
-            onCodeChange={setCode}
-            codeError={codeError}
-            newPassword={newPassword}
-            onNewPasswordChange={setNewPassword}
-            confirmPassword={confirmPassword}
-            onConfirmPasswordChange={setConfirmPassword}
-          />
-        </ForgotPasswordShell>
-        <ErrorModal
-          visible={isErrorModalVisible}
-          errorMessage={errorModalMessage}
-          onClose={() => setIsErrorModalVisible(false)}
-        />
-      </SafeAreaView>
+      <ForgotPasswordScreen
+        initialEmail={email}
+        onBack={() => setScreenMode('login')}
+        onDone={(recoveredEmail) => {
+          setEmail(recoveredEmail);
+          setPassword('');
+          setLoginNotice('Password updated. Log in with your new password.');
+          setScreenMode('login');
+        }}
+      />
     );
   }
 
@@ -269,85 +163,86 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
       <StatusBar barStyle="dark-content" backgroundColor={colors.ground} />
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <View style={styles.hero}>
-            <View style={styles.rings} pointerEvents="none">
-              <View style={[styles.ring, { width: 156, height: 156, borderRadius: 78, top: 72, left: '50%', marginLeft: -78 }]} />
-              <View style={[styles.ring, { width: 248, height: 248, borderRadius: 124, top: 26, left: '50%', marginLeft: -124, opacity: 0.8 }]} />
-              <View style={[styles.ring, { width: 344, height: 344, borderRadius: 172, top: -22, left: '50%', marginLeft: -172, opacity: 0.6 }]} />
+          <View style={styles.header}>
+            <View style={styles.avatar}>
+              <MaterialCommunityIcons name="account-circle-outline" size={44} color={colors.primary} />
             </View>
-
-            <View style={styles.brandRow}>
-              <BrandMark size={30} inverted />
-              <Text style={styles.brandName}>SmartAnemiaScan</Text>
-            </View>
-
-            <View style={styles.eye}>
-              <EyeIllustration />
-              <View style={styles.lidTag}>
-                <View style={styles.lidDot} />
-                <Text style={styles.lidTagText}>Lower eyelid</Text>
-              </View>
-            </View>
-
-            <Text style={styles.heroTitle}>Anemia screening{'\n'}from one eyelid photo</Text>
+            <Text style={styles.title} accessibilityRole="header">Log in or sign up</Text>
           </View>
 
-          <View style={styles.intro}>
-            <Text style={type.title} accessibilityRole="header">Welcome back</Text>
-            <Text style={type.bodyMuted}>Log in to keep tracking your eyelid scans.</Text>
-          </View>
+          {wrongCredentials ? (
+            <Banner title="Wrong email or password" text="Check both and try again, or reset your password." />
+          ) : loginNotice ? (
+            <View style={styles.notice} accessibilityLiveRegion="polite">
+              <Feather name="check-circle" size={20} color={colors.risk.low.fg} />
+              <Text style={styles.noticeText}>{loginNotice}</Text>
+            </View>
+          ) : null}
 
           <View style={styles.form}>
             <TextField
-              label="Email or phone"
               value={email}
-              onChangeText={setEmail}
-              placeholder="you@example.com"
+              onChangeText={editEmail}
+              error={fieldErrors.email || wrongCredentials}
+              placeholder="Email"
+              accessibilityLabel="Email"
               keyboardType="email-address"
               autoCapitalize="none"
               autoComplete="email"
               textContentType="username"
+              clearable
             />
             <TextField
-              label="Password"
               value={password}
-              onChangeText={setPassword}
-              placeholder="Your password"
+              onChangeText={editPassword}
+              error={fieldErrors.password || wrongCredentials}
+              placeholder="Password"
+              accessibilityLabel="Password"
               secure
               autoComplete="password"
               textContentType="password"
-              labelAccessory={
-                <Pressable onPress={openForgotPassword} accessibilityRole="button" hitSlop={10}>
-                  <Text style={styles.link}>Forgot?</Text>
-                </Pressable>
-              }
+              onSubmitEditing={handleLogin}
             />
           </View>
 
-          <Button title={loading ? 'Logging in…' : 'Log in'} onPress={handleLogin} loading={loading} />
+          <Button title="Continue" onPress={handleLogin} loading={loading} />
 
-          <View style={styles.signupRow}>
-            <Text style={type.caption}>New here?</Text>
-            <Pressable onPress={onSignUpPress} accessibilityRole="button" hitSlop={10}>
-              <Text style={styles.link}>Create an account</Text>
-            </Pressable>
+          <Text style={styles.forgot}>
+            Forgot your password?{' '}
+            <Text style={styles.link} onPress={openForgotPassword} accessibilityRole="link" suppressHighlighting>
+              Reset it here
+            </Text>
+          </Text>
+
+          <View style={styles.orRow}>
+            <View style={styles.orLine} />
+            <Text style={styles.orText}>or</Text>
+            <View style={styles.orLine} />
           </View>
+
+          <View style={styles.socials}>
+            <SocialButton label="Continue with Google" icon={<GoogleLogo />} onPress={() => socialSoon('Google')} />
+            <SocialButton
+              label="Continue with Apple"
+              icon={<FontAwesome name="apple" size={22} color={colors.ink} />}
+              onPress={() => socialSoon('Apple')}
+            />
+          </View>
+
+          <Text style={styles.footer}>
+            New here? Enter your email and a password — we’ll{' '}
+            <Text
+              style={styles.link}
+              onPress={() => onSignUpPress?.({ email: email.trim(), password })}
+              accessibilityRole="link"
+              suppressHighlighting
+            >
+              create your account
+            </Text>{' '}
+            next.
+          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
-
-      <ErrorModal
-        visible={isErrorModalVisible}
-        errorMessage={errorModalMessage}
-        onClose={() => setIsErrorModalVisible(false)}
-      />
-      <SuccessModal
-        visible={isSuccessModalVisible}
-        message={successModalMessage}
-        onClose={() => {
-          setIsSuccessModalVisible(false);
-          if (successOpensApp && onLoginSuccess) onLoginSuccess();
-        }}
-      />
     </SafeAreaView>
   );
 }
@@ -355,7 +250,6 @@ export default function SignInScreen({ onSignUpPress, onLoginSuccess }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.ground,
   },
   flex: {
     flex: 1,
@@ -363,92 +257,102 @@ const styles = StyleSheet.create({
   scroll: {
     flexGrow: 1,
     paddingHorizontal: spacing.form,
-    paddingTop: 8,
+    paddingTop: 40,
     paddingBottom: 24,
-    gap: 20,
+    gap: 16,
   },
-  hero: {
-    height: 330,
-    borderRadius: radii.hero,
-    backgroundColor: colors.primary,
-    overflow: 'hidden',
-    paddingHorizontal: 22,
-    paddingTop: 20,
-    paddingBottom: 22,
-    justifyContent: 'space-between',
+  header: {
+    alignItems: 'center',
+    gap: 22,
+    marginBottom: 8,
   },
-  rings: {
-    ...StyleSheet.absoluteFillObject,
+  avatar: {
+    width: 104,
+    height: 104,
+    borderRadius: 52,
+    borderWidth: 1.5,
+    borderColor: '#C9D8D3',
+    backgroundColor: colors.block,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  ring: {
-    position: 'absolute',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.07)',
+  title: {
+    fontFamily: fonts.bold,
+    fontSize: 30,
+    letterSpacing: -0.6,
+    color: colors.ink,
+    textAlign: 'center',
   },
-  brandRow: {
+  notice: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
+    padding: 16,
+    borderRadius: radii.lg,
+    backgroundColor: colors.risk.low.bg,
   },
-  brandName: {
-    fontFamily: fonts.bold,
-    fontSize: 16,
-    color: '#FFFFFF',
-  },
-  eye: {
-    position: 'absolute',
-    top: 64,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
-  lidTag: {
-    position: 'absolute',
-    top: 162,
-    left: '50%',
-    marginLeft: 47,
-    height: 28,
-    paddingHorizontal: 11,
-    borderRadius: radii.pill,
-    backgroundColor: colors.roseTint,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  lidDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: '#D8604A',
-  },
-  lidTagText: {
-    fontFamily: fonts.semibold,
-    fontSize: 12,
-    color: colors.roseInkDark,
-  },
-  heroTitle: {
-    fontFamily: fonts.bold,
-    fontSize: 20,
-    lineHeight: 25,
-    letterSpacing: -0.3,
-    color: '#FFFFFF',
-  },
-  intro: {
-    gap: 6,
+  noticeText: {
+    flex: 1,
+    fontFamily: fonts.medium,
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.risk.low.fg,
   },
   form: {
-    gap: 14,
+    gap: 12,
   },
   link: {
     fontFamily: fonts.semibold,
-    fontSize: 14,
     color: colors.primary,
   },
-  signupRow: {
-    marginTop: 'auto',
+  forgot: {
+    ...type.caption,
+    fontSize: 14,
+    textAlign: 'center',
+    paddingVertical: 4,
+  },
+  orRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
+    gap: 16,
+  },
+  orLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.line,
+  },
+  orText: {
+    ...type.caption,
+    fontSize: 14,
+  },
+  socials: {
+    gap: 12,
+  },
+  social: {
+    height: 52,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  socialPressed: {
+    backgroundColor: '#EEF3F1',
+  },
+  socialText: {
+    fontFamily: fonts.semibold,
+    fontSize: 16,
+    color: colors.ink,
+  },
+  footer: {
+    ...type.caption,
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginTop: 'auto',
+    paddingTop: 24,
   },
 });

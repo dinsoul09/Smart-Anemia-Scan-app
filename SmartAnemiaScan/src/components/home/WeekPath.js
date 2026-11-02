@@ -74,7 +74,7 @@ export default function WeekPath({ scanDates, streakWeeks }) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    backgroundColor: colors.block,
     borderRadius: 28,
     paddingTop: 14,
     paddingHorizontal: 12,

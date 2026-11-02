@@ -116,7 +116,6 @@ export default function ScanGuideScreen({ onBack, onOpenCamera }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.ground,
   },
   header: {
     flexDirection: 'row',
@@ -163,7 +162,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   tip: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.block,
     borderRadius: 18,
     paddingVertical: 14,
     paddingHorizontal: 16,

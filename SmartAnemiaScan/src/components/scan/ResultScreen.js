@@ -100,7 +100,6 @@ export default function ResultScreen({ scan, disclaimer, onClose, onScanAgain, o
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.ground,
   },
   header: {
     flexDirection: 'row',
@@ -125,7 +124,7 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   gaugeCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.block,
     borderRadius: radii.xxl,
     paddingTop: 22,
     paddingHorizontal: 20,
@@ -144,7 +143,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   meaningCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.block,
     borderRadius: radii.xl,
     padding: 18,
     gap: 14,
@@ -183,7 +182,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.block,
     borderRadius: radii.xl,
     padding: 16,
   },

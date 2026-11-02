@@ -4,7 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { colors, fonts, radii } from '../../theme';
 
 const VARIANTS = {
-  primary: { bg: colors.primary, pressed: colors.primaryPressed, fg: colors.onPrimary },
+  primary: { bg: colors.ink, pressed: colors.cameraBg, fg: colors.onPrimary, shadow: true },
   secondary: { bg: colors.surface, pressed: '#EEF3F1', fg: colors.primary, border: '#C9D8D3' },
   inverse: { bg: colors.surface, pressed: '#EEF3F1', fg: colors.primary },
   ghost: { bg: 'transparent', pressed: 'rgba(29, 91, 83, 0.08)', fg: colors.primary },
@@ -40,6 +40,7 @@ export default function Button({
         size === 'md' && styles.md,
         { backgroundColor: dimmed ? colors.disabled : pressed ? v.pressed : v.bg },
         v.border && { borderWidth: 1.5, borderColor: v.border },
+        v.shadow && !dimmed && styles.shadow,
         style,
       ]}
     >
@@ -58,8 +59,8 @@ export default function Button({
 
 const styles = StyleSheet.create({
   base: {
-    height: 54,
-    borderRadius: radii.lg,
+    height: 52,
+    borderRadius: radii.pill,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
@@ -68,11 +69,18 @@ const styles = StyleSheet.create({
   },
   md: {
     height: 48,
-    borderRadius: radii.md,
+  },
+  // Soft dark glow under the main action
+  shadow: {
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.22,
+    shadowRadius: 16,
+    elevation: 6,
   },
   text: {
-    fontFamily: fonts.semibold,
-    fontSize: 16,
+    fontFamily: fonts.bold,
+    fontSize: 17,
   },
   textMd: {
     fontSize: 15,

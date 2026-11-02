@@ -6,13 +6,16 @@ import MainMenuScreen from './src/components/MainMenuScreen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthEventEmitter } from './src/api/authApi';
 import * as SecureStore from 'expo-secure-store';
-import { Platform } from 'react-native';
+import { Platform, View, StyleSheet } from 'react-native';
 import { useFonts } from 'expo-font';
 import { fontFiles } from './src/theme';
+import { AppBackground, FeedbackProvider } from './src/components/ui';
 
 export default function App() {
   const [isShowSplash, setIsShowSplash] = useState(true);
   const [activeScreen, setActiveScreen] = useState('signIn');
+  // Email and password typed on the sign-in screen, carried over to sign-up
+  const [signUpPrefill, setSignUpPrefill] = useState({});
   const [fontsLoaded, fontError] = useFonts(fontFiles);
 
   useEffect(() => {
@@ -56,22 +59,38 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      {activeScreen === 'signUp' ? (
-        <SignUpScreen
-          onBackToLogin={() => setActiveScreen('signIn')}
-          onSuccess={() => setActiveScreen('mainMenu')}
-        />
-      ) : activeScreen === 'mainMenu' ? (
-        <MainMenuScreen onLogout={() => setActiveScreen('signIn')} />
-      ) : (
-        <SignInScreen
-          onSignUpPress={() => setActiveScreen('signUp')}
-          onLoginSuccess={() => setActiveScreen('mainMenu')}
-        />
-      )}
+      <FeedbackProvider>
+        <View style={styles.root}>
+          <AppBackground />
+          {activeScreen === 'signUp' ? (
+            <SignUpScreen
+              initialEmail={signUpPrefill.email}
+              initialPassword={signUpPrefill.password}
+              onBackToLogin={() => setActiveScreen('signIn')}
+              onSuccess={() => setActiveScreen('mainMenu')}
+            />
+          ) : activeScreen === 'mainMenu' ? (
+            <MainMenuScreen onLogout={() => setActiveScreen('signIn')} />
+          ) : (
+            <SignInScreen
+              onSignUpPress={(prefill) => {
+                setSignUpPrefill(prefill ?? {});
+                setActiveScreen('signUp');
+              }}
+              onLoginSuccess={() => setActiveScreen('mainMenu')}
+            />
+          )}
+        </View>
+      </FeedbackProvider>
     </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+});
 
  
  

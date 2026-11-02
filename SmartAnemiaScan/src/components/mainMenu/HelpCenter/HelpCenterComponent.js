@@ -108,7 +108,6 @@ export default function HelpCenterComponent({ onBack }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.ground,
   },
   scroll: {
     paddingHorizontal: 20,
@@ -129,7 +128,7 @@ const styles = StyleSheet.create({
   },
   channel: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.block,
     borderRadius: radii.xl,
     paddingVertical: 16,
     alignItems: 'center',
@@ -156,7 +155,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   faq: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.block,
     borderRadius: radii.xl,
     paddingHorizontal: 16,
   },

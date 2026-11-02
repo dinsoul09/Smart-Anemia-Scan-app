@@ -11,6 +11,11 @@ interface ProfileViewProps {
   onLogout: () => void;
   onOpenHelp: () => void;
   onOpenPrivacy?: () => void;
+  onOpenLanguage: () => void;
+  reminderOn: boolean;
+  reminderBusy: boolean;
+  reminderSchedule: string;
+  onToggleReminder: () => void;
 }
 
 const getSexLabel = (sex: string | null | undefined) => {
@@ -36,13 +41,6 @@ const initials = (name: string | null | undefined, email: string | null | undefi
   return (parts[0]?.[0] || email?.[0] || '?').toUpperCase();
 };
 
-// "Aruzhan Serikovna" → "Aruzhan S."
-const shortName = (name: string | null | undefined) => {
-  const parts = (name || '').trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return 'Your profile';
-  return parts.length > 1 ? `${parts[0]} ${parts[1][0]}.` : parts[0];
-};
-
 function DetailRow({ label, value, last }: { label: string; value: string | null; last?: boolean }) {
   return (
     <View style={[styles.detailRow, !last && styles.rowDivider]}>
@@ -55,11 +53,13 @@ function DetailRow({ label, value, last }: { label: string; value: string | null
 function SettingsRow({
   icon,
   label,
+  value,
   onPress,
   last,
 }: {
   icon: React.ComponentProps<typeof Feather>['name'];
   label: string;
+  value?: string;
   onPress: () => void;
   last?: boolean;
 }) {
@@ -71,12 +71,45 @@ function SettingsRow({
     >
       <Feather name={icon} size={20} color={colors.primary} />
       <Text style={styles.settingsLabel}>{label}</Text>
+      {value ? <Text style={styles.settingsValue}>{value}</Text> : null}
       <Feather name="chevron-right" size={20} color={colors.subtle} />
     </Pressable>
   );
 }
 
-const ProfileView: React.FC<ProfileViewProps> = ({ profile, onEdit, onLogout, onOpenHelp, onOpenPrivacy }) => {
+function ReminderRow({ on, busy, schedule, onToggle }: { on: boolean; busy: boolean; schedule: string; onToggle: () => void }) {
+  return (
+    <Pressable
+      onPress={onToggle}
+      disabled={busy}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: on, busy }}
+      style={({ pressed }) => [styles.settingsRow, styles.rowDivider, pressed && styles.pressed]}
+    >
+      <Feather name="bell" size={20} color={colors.primary} />
+      <View style={styles.settingsText}>
+        <Text style={styles.reminderLabel}>Weekly scan reminder</Text>
+        <Text style={type.small}>{schedule}</Text>
+      </View>
+      <View style={[styles.checkbox, on && styles.checkboxChecked, busy && styles.checkboxBusy]}>
+        {on ? <Feather name="check" size={16} color={colors.onPrimary} /> : null}
+      </View>
+    </Pressable>
+  );
+}
+
+const ProfileView: React.FC<ProfileViewProps> = ({
+  profile,
+  onEdit,
+  onLogout,
+  onOpenHelp,
+  onOpenPrivacy,
+  onOpenLanguage,
+  reminderOn,
+  reminderBusy,
+  reminderSchedule,
+  onToggleReminder,
+}) => {
   return (
     <ScrollView contentContainerStyle={styles.scroll}>
       <Text style={[type.title, styles.title]} accessibilityRole="header">Profile</Text>
@@ -87,7 +120,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile, onEdit, onLogout, on
             <Text style={styles.avatarText}>{initials(profile?.fullName, profile?.email)}</Text>
           </View>
           <View style={styles.identityText}>
-            <Text style={type.subheading} numberOfLines={1}>{shortName(profile?.fullName)}</Text>
+            <Text style={type.subheading} numberOfLines={1}>{profile?.fullName?.trim() || 'Your profile'}</Text>
             <Text style={type.caption} numberOfLines={1}>{profile?.email}</Text>
           </View>
           <IconButton icon="edit-2" accessibilityLabel="Edit profile" onPress={onEdit} style={styles.editButton} size={20} />
@@ -106,6 +139,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({ profile, onEdit, onLogout, on
       <View style={styles.section}>
         <Text style={[type.section, styles.sectionTitle]}>Settings</Text>
         <View style={styles.card}>
+          <SettingsRow icon="globe" label="Language" value="English" onPress={onOpenLanguage} />
+          <ReminderRow on={reminderOn} busy={reminderBusy} schedule={reminderSchedule} onToggle={onToggleReminder} />
           {onOpenPrivacy ? <SettingsRow icon="shield" label="Privacy & my data" onPress={onOpenPrivacy} /> : null}
           <SettingsRow icon="help-circle" label="Help & contacts" onPress={onOpenHelp} last />
         </View>
@@ -130,7 +165,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   card: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.block,
     borderRadius: radii.xl,
     paddingHorizontal: 16,
   },
@@ -200,6 +235,37 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.ink,
   },
+  reminderLabel: {
+    fontFamily: fonts.medium,
+    fontSize: 15,
+    color: colors.ink,
+  },
+  settingsText: {
+    flex: 1,
+    gap: 2,
+  },
+  settingsValue: {
+    fontFamily: fonts.regular,
+    fontSize: 15,
+    color: colors.muted,
+  },
+  checkbox: {
+    width: 26,
+    height: 26,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: '#9FB3AD',
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  checkboxBusy: {
+    opacity: 0.5,
+  },
   pressed: {
     opacity: 0.7,
   },
@@ -210,7 +276,7 @@ const styles = StyleSheet.create({
     gap: 8,
     height: 54,
     borderRadius: radii.lg,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.block,
   },
   logoutText: {
     fontFamily: fonts.semibold,

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable, ScrollView, KeyboardAvoidingView, Pl
 import { ProfileInfo, UpdateProfileDto } from '../../api/ProfileApi';
 import { Button, IconButton, NAV_CLEARANCE, TextField } from '../ui';
 import { colors, fonts, radii, type } from '../../theme';
+import { cleanName, validateFullName } from '../../utils/apiErrors';
 
 interface ProfileEditProps {
   profile: ProfileInfo | null;
@@ -31,10 +32,14 @@ const ProfileEdit: React.FC<ProfileEditProps> = ({ profile, onSave, onCancel, lo
   const [birthDate, setBirthDate] = useState(formatBirthDate(profile?.birthDate));
   const [age, setAge] = useState(profile?.age?.toString() || '');
   const [sex, setSex] = useState<string | null>(profile?.sex ?? null);
+  const [nameError, setNameError] = useState('');
 
   const handleSave = async () => {
+    const error = validateFullName(fullName);
+    setNameError(error);
+    if (error) return;
     const updatedData: UpdateProfileDto = {
-      fullName,
+      fullName: cleanName(fullName),
       birthDate,
       age: age ? parseInt(age, 10) : null,
       sex,
@@ -66,7 +71,17 @@ const ProfileEdit: React.FC<ProfileEditProps> = ({ profile, onSave, onCancel, lo
         <Text style={type.bodyMuted}>Sex and age choose the haemoglobin scale for your results.</Text>
 
         <View style={styles.form}>
-          <TextField label="Full name" value={fullName} onChangeText={setFullName} placeholder="Full name" autoComplete="name" />
+          <TextField
+            label="Full name"
+            value={fullName}
+            onChangeText={(value) => {
+              setFullName(value);
+              if (nameError) setNameError('');
+            }}
+            error={nameError}
+            placeholder="Full name"
+            autoComplete="name"
+          />
           <TextField
             label="Birth date"
             value={birthDate}

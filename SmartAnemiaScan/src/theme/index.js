@@ -4,8 +4,11 @@
 
 export const colors = {
   // Base
-  ground: '#F1F4F2',      // app background
-  surface: '#FFFFFF',     // cards, inputs, nav bar
+  ground: '#EEF2F0',      // app background base (glows on top: ui/AppBackground)
+  glowMint: '#CFE6DE',    // background glow, top right
+  glowRose: '#F6D9CF',    // background glow, left
+  surface: '#FFFFFF',     // inputs, buttons, nav bar
+  block: '#FFFFFF',       // cards / blocks on the background
   ink: '#13201D',         // main text
   muted: '#55625E',       // secondary text (4.5:1+ on ground and surface)
   subtle: '#66736F',      // inactive nav icons/labels
