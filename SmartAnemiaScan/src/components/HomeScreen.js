@@ -6,7 +6,6 @@ import { getProfileInfo } from '../api/ProfileApi';
 import { getScanHistory } from '../api/anemiaApi';
 import { getAccessToken } from '../api/tokenStorage';
 import { Badge, Button, FadeIn, NAV_CLEARANCE } from './ui';
-import AmbientBackground from './home/AmbientBackground';
 import RiskTrendChart from './home/RiskTrendChart';
 import WeekPath from './home/WeekPath';
 import { assessScan, colors, fonts, riskLabel, type } from '../theme';
@@ -71,7 +70,7 @@ function PlanRow({ icon, iconBg, iconColor, caption, captionColor, title, onPres
   );
 }
 
-export default function HomeScreen({ onStartScan, onOpenScan, onOpenProfile, onOpenCourses, onOpenHistory }) {
+export default function HomeScreen({ onStartScan, onOpenScan, onOpenProfile, onOpenCourses, onOpenHistory, onAddLab }) {
   const [profile, setProfile] = useState(null);
   const [scans, setScans] = useState([]);
   const [disclaimer, setDisclaimer] = useState('');
@@ -142,7 +141,6 @@ export default function HomeScreen({ onStartScan, onOpenScan, onOpenProfile, onO
 
   return (
     <View style={styles.container}>
-      <AmbientBackground />
       <SafeAreaView style={styles.flex} edges={['top']}>
         <StatusBar barStyle="dark-content" backgroundColor={colors.ground} />
         <ScrollView
@@ -150,13 +148,13 @@ export default function HomeScreen({ onStartScan, onOpenScan, onOpenProfile, onO
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.primary} />}
         >
           <View style={styles.header}>
-            <Pressable onPress={onOpenProfile} accessibilityRole="button" accessibilityLabel="Profile" style={styles.avatar}>
-              <Text style={styles.avatarText}>{initial}</Text>
-            </Pressable>
             <View style={styles.headerText}>
               <Text style={type.caption}>{greeting()}</Text>
               <Text style={styles.name} accessibilityRole="header">{firstName || 'Welcome'}</Text>
             </View>
+            <Pressable onPress={onOpenProfile} accessibilityRole="button" accessibilityLabel="Profile" style={styles.avatar}>
+              <Text style={styles.avatarText}>{initial}</Text>
+            </Pressable>
           </View>
 
           {loadError && !latest ? (
@@ -246,20 +244,19 @@ export default function HomeScreen({ onStartScan, onOpenScan, onOpenProfile, onO
                       captionColor={colors.roseInk}
                       title="Weekly scan"
                       onPress={onStartScan}
-                      last
                     />
-                  ) : (
-                    <PlanRow
-                      icon="user"
-                      iconBg={colors.roseTint}
-                      iconColor="#C2553D"
-                      caption={profile?.sex != null ? 'DONE' : 'ADD YOUR SEX'}
-                      captionColor={colors.roseInk}
-                      title="Complete your profile"
-                      onPress={onOpenProfile}
-                      last
-                    />
-                  )}
+                  ) : null}
+                  {/* A lab result is stored on a scan, so without one this starts the first scan */}
+                  <PlanRow
+                    icon="droplet"
+                    iconBg={colors.risk.moderate.bg}
+                    iconColor={colors.risk.moderate.fg}
+                    caption="OPTIONAL · FROM A CBC"
+                    captionColor={colors.risk.moderate.fg}
+                    title="Add a blood test result"
+                    onPress={latest ? () => onAddLab?.(latest, disclaimer) : onStartScan}
+                    last
+                  />
                 </View>
               </FadeIn>
             </>
@@ -273,8 +270,6 @@ export default function HomeScreen({ onStartScan, onOpenScan, onOpenProfile, onO
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#EEF2F0',
-    overflow: 'hidden',
   },
   flex: {
     flex: 1,
@@ -283,7 +278,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#EEF2F0',
   },
   scroll: {
     paddingHorizontal: 20,
@@ -301,6 +295,8 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: colors.line,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: colors.ink,
@@ -325,7 +321,7 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   card: {
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    backgroundColor: colors.block,
     borderRadius: 30,
     paddingTop: 18,
     paddingHorizontal: 22,
@@ -419,7 +415,7 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   plan: {
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    backgroundColor: colors.block,
     borderRadius: 24,
     paddingVertical: 4,
     paddingHorizontal: 16,

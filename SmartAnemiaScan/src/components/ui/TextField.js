@@ -1,6 +1,7 @@
 import React, { forwardRef, useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import FieldMessage from './FieldMessage';
 import { colors, fonts, radii } from '../../theme';
 
 const TextField = forwardRef(function TextField(
@@ -12,6 +13,7 @@ const TextField = forwardRef(function TextField(
     onRightPress,
     rightLabel,
     labelAccessory,
+    clearable = false,
     style,
     inputStyle,
     onFocus,
@@ -59,6 +61,19 @@ const TextField = forwardRef(function TextField(
           {...inputProps}
           accessibilityLabel={inputProps.accessibilityLabel ?? label}
         />
+        {clearable && inputProps.value ? (
+          <Pressable
+            onPress={() => inputProps.onChangeText?.('')}
+            accessibilityRole="button"
+            accessibilityLabel="Clear"
+            hitSlop={6}
+            style={styles.trailing}
+          >
+            <View style={styles.clear}>
+              <Feather name="x" size={11} color={colors.surface} />
+            </View>
+          </Pressable>
+        ) : null}
         {trailingIcon ? (
           <Pressable
             onPress={onTrailingPress}
@@ -71,7 +86,8 @@ const TextField = forwardRef(function TextField(
           </Pressable>
         ) : null}
       </View>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {/* `error` can be just `true` (red border only) or the line to show under the field */}
+      {typeof error === 'string' && error ? <FieldMessage>{error}</FieldMessage> : null}
     </View>
   );
 });
@@ -109,6 +125,15 @@ const styles = StyleSheet.create({
   boxError: {
     borderColor: '#C9503E',
     borderWidth: 1.5,
+    backgroundColor: '#FDF6F3',
+  },
+  clear: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#B8C2BF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   input: {
     flex: 1,
@@ -125,10 +150,5 @@ const styles = StyleSheet.create({
     marginRight: 4,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  error: {
-    fontFamily: fonts.medium,
-    fontSize: 13,
-    color: colors.danger,
   },
 });

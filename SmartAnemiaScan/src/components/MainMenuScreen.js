@@ -121,6 +121,7 @@ export default function MainMenuScreen({ onLogout }) {
             onOpenHistory={() => setActiveTab('history')}
             onOpenProfile={() => setActiveTab('profile')}
             onOpenCourses={() => setActiveTab('courses')}
+            onAddLab={(scan, disclaimer) => setOverlay({ name: 'labHemoglobin', scan, disclaimer, canScanAgain: false })}
           />
         ) : activeTab === 'history' ? (
           <HistoryScreen key={dataVersion} onOpenScan={showHistoryItem} onStartScan={startScan} />
@@ -138,7 +139,6 @@ export default function MainMenuScreen({ onLogout }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.ground,
   },
   body: {
     flex: 1,

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Modal, Image, PanResponder } from 'react-native';
 import Svg, { Polygon } from 'react-native-svg';
-import { Button } from '../../ui';
+import { Button, Banner } from '../../ui';
 import { colors, fonts } from '../../../theme';
 
 // How close (in screen points) a touch must be to a handle to grab it instead of moving the whole outline
@@ -28,7 +28,8 @@ const makeInitialOutline = (width, height) => {
   ];
 };
 
-export default function ConjunctivaMaskEditor({ photo, isSubmitting, errorText, onRetake, onConfirm }) {
+// `photoNotRead` — the server couldn't analyse the photo at all: only a retake helps
+export default function ConjunctivaMaskEditor({ photo, isSubmitting, errorText, photoNotRead, onRetake, onConfirm }) {
   const [layout, setLayout] = useState(null);
   const [points, setPoints] = useState([]);
 
@@ -141,7 +142,19 @@ export default function ConjunctivaMaskEditor({ photo, isSubmitting, errorText, 
           </View>
         </View>
 
-        {errorText ? <Text style={styles.errorText}>{errorText}</Text> : null}
+        {photoNotRead ? (
+          <Banner
+            tone="warning"
+            icon="aperture"
+            title="We couldn't read this photo"
+            text="Retake it in daylight with the lower eyelid pulled down."
+            actionLabel="Retake photo"
+            onAction={onRetake}
+            style={styles.banner}
+          />
+        ) : errorText ? (
+          <Text style={styles.errorText}>{errorText}</Text>
+        ) : null}
 
         <View style={styles.actions}>
           <Button title="Retake" variant="secondary" onPress={onRetake} disabled={isSubmitting} style={styles.action} />
@@ -193,6 +206,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 2,
     borderColor: colors.primary,
+  },
+  banner: {
+    marginHorizontal: 20,
+    marginTop: 12,
   },
   errorText: {
     fontFamily: fonts.semibold,

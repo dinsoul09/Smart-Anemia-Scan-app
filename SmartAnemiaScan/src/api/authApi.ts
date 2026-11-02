@@ -56,7 +56,8 @@ export const loginUser = async (email, password) => {
     });
     return response.data;
   } catch (error: any) {
-    throw error.response.data;
+    // The caller reads both the status and the body (see utils/apiErrors)
+    throw error;
   }
 };
 

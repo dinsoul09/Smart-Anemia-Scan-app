@@ -33,7 +33,7 @@ export default function ScanRow({ scan, onPress }) {
 
 const styles = StyleSheet.create({
   row: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.block,
     borderRadius: 18,
     paddingVertical: 12,
     paddingLeft: 12,

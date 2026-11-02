@@ -14,9 +14,11 @@ import { getProfileInfo, updateProfile, ProfileInfo, UpdateProfileDto } from '..
 
 import ProfileView from './profile/ProfileView';
 import ProfileEdit from './profile/ProfileEdit';
-import SuccessModal from '../modals/SuccessModal/SuccessModal';
-import ErrorModal from '../modals/ErrorModal/ErrorModal';
 import { getLegal } from '../api/authApi';
+import { useFeedback } from './ui';
+import { apiTexts } from '../utils/apiErrors';
+// @ts-ignore — platform-specific JS module (scanReminder.native.js / scanReminder.web.js)
+import { isReminderOn, setReminderOn, remindersSupported, REMINDER_SCHEDULE } from '../utils/scanReminder';
 import { colors } from '../theme';
 
 interface ProfileScreenProps {
@@ -29,12 +31,39 @@ const ProfileScreen = ({ onLogout, onOpenHelp }: ProfileScreenProps) => {
   const [profile, setProfile] = useState<ProfileInfo | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [token, setToken] = useState<string | null>(null);
-
-  // Modals
-  const [successVisible, setSuccessVisible] = useState(false);
-  const [errorVisible, setErrorVisible] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  const { showToast, handleRequestError } = useFeedback();
   const [policyUrl, setPolicyUrl] = useState<string | null>(null);
+  const [reminderOn, setReminderState] = useState(false);
+  const [reminderBusy, setReminderBusy] = useState(false);
+
+  useEffect(() => {
+    isReminderOn()
+      .then(setReminderState)
+      .catch(() => setReminderState(false));
+  }, []);
+
+  const toggleReminder = async () => {
+    if (!remindersSupported) {
+      showToast({ tone: 'error', title: 'Reminders work in the mobile app', text: 'Open SmartAnemiaScan on your phone to turn them on' });
+      return;
+    }
+    const want = !reminderOn;
+    setReminderBusy(true);
+    try {
+      const applied = await setReminderOn(want);
+      setReminderState(applied);
+      if (want && !applied) {
+        showToast({ tone: 'error', title: 'Notifications are off', text: 'Allow notifications for the app in Settings' });
+      } else if (applied) {
+        showToast({ title: 'Reminder on', text: `We’ll remind you ${REMINDER_SCHEDULE}` });
+      }
+    } catch (err) {
+      console.error('Reminder error:', err);
+      showToast({ tone: 'error', title: 'Couldn’t change the reminder', text: 'Try again in a moment' });
+    } finally {
+      setReminderBusy(false);
+    }
+  };
 
   useEffect(() => {
     getLegal()
@@ -84,8 +113,9 @@ const ProfileScreen = ({ onLogout, onOpenHelp }: ProfileScreenProps) => {
       setProfile(data.profile);
     } catch (err: any) {
       console.error('Profile load error:', err);
-      setErrorMessage(err.message || 'Failed to load profile');
-      setErrorVisible(true);
+      if (!handleRequestError(err, loadProfile)) {
+        showToast({ tone: 'error', title: 'Couldn’t load your profile', text: 'Reopen the tab to try again' });
+      }
     } finally {
       setLoading(false);
     }
@@ -106,10 +136,11 @@ const ProfileScreen = ({ onLogout, onOpenHelp }: ProfileScreenProps) => {
         });
       }
       setIsEditing(false);
-      setSuccessVisible(true);
+      showToast({ title: 'Profile saved', text: 'Your changes are up to date' });
     } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to update profile');
-      setErrorVisible(true);
+      if (!handleRequestError(err, () => handleSave(data))) {
+        showToast({ tone: 'error', title: 'Couldn’t save your profile', text: apiTexts(err)[0] || 'Check the fields and try again' });
+      }
     } finally {
       setLoading(false);
     }
@@ -140,19 +171,13 @@ const ProfileScreen = ({ onLogout, onOpenHelp }: ProfileScreenProps) => {
           onLogout={onLogout}
           onOpenHelp={onOpenHelp}
           onOpenPrivacy={policyUrl ? () => Linking.openURL(policyUrl) : undefined}
+          onOpenLanguage={() => showToast({ title: 'More languages are coming', text: 'For now the app is in English' })}
+          reminderOn={reminderOn}
+          reminderBusy={reminderBusy}
+          reminderSchedule={REMINDER_SCHEDULE}
+          onToggleReminder={toggleReminder}
         />
       )}
-
-      <SuccessModal
-        visible={successVisible}
-        message="Profile updated successfully!"
-        onClose={() => setSuccessVisible(false)}
-      />
-      <ErrorModal
-        visible={errorVisible}
-        errorMessage={errorMessage}
-        onClose={() => setErrorVisible(false)}
-      />
     </SafeAreaView>
   );
 };
@@ -160,11 +185,9 @@ const ProfileScreen = ({ onLogout, onOpenHelp }: ProfileScreenProps) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.ground,
   },
   loaderContainer: {
     flex: 1,
-    backgroundColor: colors.ground,
     justifyContent: 'center',
     alignItems: 'center',
     minHeight: 300,

@@ -14,12 +14,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import { signUpUser, sendEmailCode, verifyRegistration, getLegal } from '../api/authApi';
-import ErrorModal from '../modals/ErrorModal/ErrorModal';
-import { Button, TextField, IconButton, CodeInput } from './ui';
+import { Button, TextField, IconButton, CodeInput, Banner, FieldMessage, useFeedback } from './ui';
+import { domainAcceptsMail, suggestEmail } from '../utils/emailCheck';
+import { FIELD_TEXT, MIN_PASSWORD, apiMessageKeys, apiTexts, isValidEmail, validateFullName, cleanName } from '../utils/apiErrors';
 import { colors, fonts, radii, spacing, type } from '../theme';
 
 const CODE_LENGTH = 5;
 const RESEND_SECONDS = 60;
+// Store page for the "Update the app" banner; the link is hidden until the app is published
+const STORE_URL = null;
 
 // Two-step progress bar under the header: form, then email code
 function StepDots({ step }) {
@@ -31,19 +34,22 @@ function StepDots({ step }) {
   );
 }
 
-export default function SignUpScreen({ onBackToLogin, onSuccess }) {
+export default function SignUpScreen({ initialEmail = '', initialPassword = '', onBackToLogin, onSuccess }) {
+  const { showToast, handleRequestError } = useFeedback();
   const [step, setStep] = useState('form'); // 'form' or 'verification'
   const [formData, setFormData] = useState({
     fullName: '',
-    email: '',
+    email: initialEmail,
     birthDate: '',
-    password: '',
+    password: initialPassword,
     confirmPassword: '',
   });
   const [isLoading, setIsLoading] = useState(false);
 
-  const [errorVisible, setErrorVisible] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  // Typing mistakes under each field; request problems the person can fix in a banner:
+  // 'emailTaken' | 'policyOutdated' | { title, text }
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [banner, setBanner] = useState(null);
 
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [legal, setLegal] = useState(null); // { policyVersion, policyUrl } from GET /Legal
@@ -78,11 +84,20 @@ export default function SignUpScreen({ onBackToLogin, onSuccess }) {
 
   const updateFormData = (key, value) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
+    if (fieldErrors[key]) setFieldErrors((prev) => ({ ...prev, [key]: null }));
+    if (banner) setBanner(null);
   };
 
-  const showError = (message) => {
-    setErrorMessage(message);
-    setErrorVisible(true);
+  // Server texts that belong to a field go under that field
+  const applyFieldKeys = (keys) => {
+    const next = {};
+    if (keys.includes('emailRequired')) next.email = FIELD_TEXT.emailRequired;
+    else if (keys.includes('emailInvalid')) next.email = FIELD_TEXT.emailInvalid;
+    if (keys.includes('passwordLength')) next.password = FIELD_TEXT.passwordLength;
+    if (keys.includes('passwordMismatch')) next.confirmPassword = FIELD_TEXT.passwordMismatch;
+    if (keys.includes('policyRequired')) next.consent = FIELD_TEXT.policyRequired;
+    setFieldErrors(next);
+    return Object.keys(next).length > 0;
   };
 
   const isValidDate = (str) => {
@@ -104,33 +119,39 @@ export default function SignUpScreen({ onBackToLogin, onSuccess }) {
     return `${y}-${m}-${d}`;
   };
 
+  const validateForm = () => {
+    const errors = {};
+    const nameError = validateFullName(formData.fullName);
+    if (nameError) errors.fullName = nameError;
+    if (!formData.email.trim()) errors.email = FIELD_TEXT.emailRequired;
+    else if (!isValidEmail(formData.email)) errors.email = FIELD_TEXT.emailInvalid;
+    if (!formData.birthDate) errors.birthDate = 'Enter your date of birth';
+    else if (!isValidDate(formData.birthDate)) errors.birthDate = 'Use the format DD / MM / YYYY';
+    if (!formData.password) errors.password = 'Enter a password';
+    else if (formData.password.length < MIN_PASSWORD) errors.password = FIELD_TEXT.passwordLength;
+    if (formData.password && formData.password !== formData.confirmPassword) {
+      errors.confirmPassword = FIELD_TEXT.passwordMismatch;
+    }
+    if (!consentAccepted) errors.consent = FIELD_TEXT.policyRequired;
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleNextStep = async () => {
-    // Basic local validation
-    if (!formData.fullName || !formData.email || !formData.password || !formData.birthDate) {
-      showError('Please fill in all required fields.');
-      return;
-    }
-
-    if (!isValidDate(formData.birthDate)) {
-      showError('Please enter a valid date of birth (DD / MM / YYYY).');
-      return;
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      showError('Passwords do not match.');
-      return;
-    }
-
-    if (!consentAccepted) {
-      showError('Please accept the Privacy Policy to continue.');
-      return;
-    }
+    setBanner(null);
+    if (!validateForm()) return;
 
     setIsLoading(true);
     try {
+      // Don't send a code to a domain that can't receive mail (typos like "gmail.coa")
+      if (!(await domainAcceptsMail(formData.email))) {
+        setFieldErrors({ email: 'This email domain doesn’t exist. Check the address.' });
+        return;
+      }
+
       // Pre-validate with the backend; it also sends the code
       await verifyRegistration({
-        email: formData.email,
+        email: formData.email.trim(),
         birthDate: formatDateToISO(formData.birthDate),
         password: formData.password,
         confirmPassword: formData.confirmPassword,
@@ -142,32 +163,13 @@ export default function SignUpScreen({ onBackToLogin, onSuccess }) {
       setStep('verification');
     } catch (error) {
       console.error('Registration validation error:', error);
-      const response = error?.response;
-      const status = response?.status;
-      const data = response?.data;
-
-      let detail = '';
-
-      // 400 — model validation errors (field-level or title)
-      if (status === 400) {
-        if (data?.errors && typeof data.errors === 'object') {
-          detail = Object.values(data.errors).flat().join('\n');
-        }
-        if (!detail) {
-          detail = data?.detail || data?.title || 'Invalid registration data.';
-        }
+      if (handleRequestError(error, handleNextStep)) return;
+      const keys = apiMessageKeys(error);
+      if (keys.includes('emailTaken')) setBanner('emailTaken');
+      else if (keys.includes('policyOutdated')) setBanner('policyOutdated');
+      else if (!applyFieldKeys(keys)) {
+        setBanner({ title: 'Check your details', text: apiTexts(error).join('\n') || 'Please try again.' });
       }
-      // 409 — email already registered
-      else if (status === 409) {
-        detail = 'This email is already registered. Please log in.';
-      }
-      // Other errors (network, 500, etc.)
-      else {
-        detail = data?.detail || data?.title || data?.message
-          || 'Failed to validate registration. Please try again.';
-      }
-
-      showError(detail);
     } finally {
       setIsLoading(false);
     }
@@ -181,6 +183,7 @@ export default function SignUpScreen({ onBackToLogin, onSuccess }) {
       setCodeError('');
       const signUpParams = {
         ...formData,
+        fullName: cleanName(formData.fullName),
         birthDate: formatDateToISO(formData.birthDate),
         emailCode: code,
         consentAccepted,
@@ -207,33 +210,23 @@ export default function SignUpScreen({ onBackToLogin, onSuccess }) {
       }
     } catch (error) {
       console.error('Registration error:', error);
-      const data = error.response?.data;
+      if (handleRequestError(error, handleFinalSignUp)) return;
+      const keys = apiMessageKeys(error);
 
-      // Try to extract specific field validation errors
-      let detail = '';
-      if (data?.errors && typeof data.errors === 'object') {
-        const allErrors = Object.values(data.errors).flat();
-        if (allErrors.length > 0) {
-          detail = allErrors.join('\n');
-        }
-      }
-
-      if (!detail) {
-        // SASException responses carry the text in `description`
-        detail = data?.description || data?.detail || data?.title || data?.message || '';
-      }
-
-      // Policy changed while the user was on this screen: fetch the current version for the retry
-      if (error.response?.status === 400 && data?.description) {
+      if (keys.includes('policyOutdated')) {
+        // Fetch the current version so a retry after updating sends the right one
         loadLegal();
-      }
-
-      if (!detail || detail === 'The verification code entered is incorrect or the code is being verified') {
-        // A wrong code is shown under the boxes, not in a modal
-        setCodeError('Wrong code. Check it and try again.');
-        setCode('');
+        setBanner('policyOutdated');
+      } else if (keys.includes('emailTaken')) {
+        setStep('form');
+        setBanner('emailTaken');
+      } else if (applyFieldKeys(keys)) {
+        // Something in the form itself was rejected: show it there
+        setStep('form');
       } else {
-        showError(detail);
+        // Anything else at this step is about the code
+        setCodeError('wrong');
+        setCode('');
       }
     } finally {
       setIsLoading(false);
@@ -242,12 +235,15 @@ export default function SignUpScreen({ onBackToLogin, onSuccess }) {
 
   const handleResend = async () => {
     try {
-      await sendEmailCode(formData.email);
+      await sendEmailCode(formData.email.trim());
       setResendIn(RESEND_SECONDS);
       setCodeError('');
+      setCode('');
+      showToast({ title: 'New code sent', text: `Check ${formData.email.trim()}` });
     } catch (error) {
       console.error('Failed to resend code:', error);
-      showError('Could not send a new code. Please try again.');
+      if (handleRequestError(error, handleResend)) return;
+      setBanner({ title: 'Couldn’t send a new code', text: apiTexts(error)[0] || 'Please try again in a minute.' });
     }
   };
 
@@ -264,9 +260,39 @@ export default function SignUpScreen({ onBackToLogin, onSuccess }) {
     updateFormData('birthDate', formatted);
   };
 
+  const emailSuggestion = suggestEmail(formData.email);
+
   const backToForm = () => {
     setStep('form');
     setCodeError('');
+    setBanner(null);
+  };
+
+  const renderBanner = () => {
+    if (banner === 'emailTaken') {
+      return (
+        <Banner
+          tone="info"
+          title="This email already has an account"
+          text="Log in instead, or reset the password if you forgot it."
+          actionLabel="Log in instead"
+          onAction={onBackToLogin}
+        />
+      );
+    }
+    if (banner === 'policyOutdated') {
+      return (
+        <Banner
+          tone="warning"
+          icon="rotate-ccw"
+          title="Update the app to continue"
+          text="The privacy policy changed. The new version has it."
+          actionLabel={STORE_URL ? 'Open the store' : null}
+          onAction={() => Linking.openURL(STORE_URL)}
+        />
+      );
+    }
+    return banner ? <Banner {...banner} /> : null;
   };
 
   const resendLabel = `${Math.floor(resendIn / 60)}:${String(resendIn % 60).padStart(2, '0')}`;
@@ -293,12 +319,15 @@ export default function SignUpScreen({ onBackToLogin, onSuccess }) {
                 <Text style={type.bodyMuted}>Your scans and history stay linked to it.</Text>
               </View>
 
+              {renderBanner()}
+
               <View style={styles.form}>
                 <TextField
                   label="Full name"
                   value={formData.fullName}
                   onChangeText={(v) => updateFormData('fullName', v)}
-                  placeholder="Aruzhan Serikovna"
+                  error={fieldErrors.fullName}
+                  placeholder="Karim Abrakhmanov"
                   autoComplete="name"
                   textContentType="name"
                 />
@@ -306,16 +335,32 @@ export default function SignUpScreen({ onBackToLogin, onSuccess }) {
                   label="Email"
                   value={formData.email}
                   onChangeText={(v) => updateFormData('email', v)}
+                  error={fieldErrors.email}
                   placeholder="you@example.com"
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoComplete="email"
                   textContentType="emailAddress"
                 />
+                {emailSuggestion ? (
+                  <Text style={styles.suggestion}>
+                    Did you mean{' '}
+                    <Text
+                      style={styles.suggestionLink}
+                      onPress={() => updateFormData('email', emailSuggestion)}
+                      accessibilityRole="link"
+                      suppressHighlighting
+                    >
+                      {emailSuggestion}
+                    </Text>
+                    ?
+                  </Text>
+                ) : null}
                 <TextField
                   label="Date of birth"
                   value={formData.birthDate}
                   onChangeText={handleBirthDateChange}
+                  error={fieldErrors.birthDate}
                   placeholder="DD / MM / YYYY"
                   keyboardType="number-pad"
                   maxLength={14}
@@ -326,6 +371,7 @@ export default function SignUpScreen({ onBackToLogin, onSuccess }) {
                     label="Password"
                     value={formData.password}
                     onChangeText={(v) => updateFormData('password', v)}
+                    error={fieldErrors.password}
                     placeholder="Password"
                     secureTextEntry
                     autoComplete="password-new"
@@ -336,6 +382,7 @@ export default function SignUpScreen({ onBackToLogin, onSuccess }) {
                     label="Repeat password"
                     value={formData.confirmPassword}
                     onChangeText={(v) => updateFormData('confirmPassword', v)}
+                    error={fieldErrors.confirmPassword}
                     placeholder="Repeat"
                     secureTextEntry
                     autoComplete="password-new"
@@ -345,11 +392,14 @@ export default function SignUpScreen({ onBackToLogin, onSuccess }) {
 
                 <Pressable
                   style={styles.consentRow}
-                  onPress={() => setConsentAccepted((v) => !v)}
+                  onPress={() => {
+                    setConsentAccepted((v) => !v);
+                    if (fieldErrors.consent) setFieldErrors((prev) => ({ ...prev, consent: null }));
+                  }}
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: consentAccepted }}
                 >
-                  <View style={[styles.checkbox, consentAccepted && styles.checkboxChecked]}>
+                  <View style={[styles.checkbox, consentAccepted && styles.checkboxChecked, fieldErrors.consent && styles.checkboxError]}>
                     {consentAccepted ? <Feather name="check" size={14} color={colors.onPrimary} /> : null}
                   </View>
                   <Text style={styles.consentText}>
@@ -360,6 +410,7 @@ export default function SignUpScreen({ onBackToLogin, onSuccess }) {
                     {' '}and understand the app gives a screening estimate, not a diagnosis.
                   </Text>
                 </Pressable>
+                {fieldErrors.consent ? <FieldMessage>{fieldErrors.consent}</FieldMessage> : null}
               </View>
 
               <Button title="Continue" iconRight="arrow-right" onPress={handleNextStep} loading={isLoading} />
@@ -384,6 +435,9 @@ export default function SignUpScreen({ onBackToLogin, onSuccess }) {
                   Enter the {CODE_LENGTH}-digit code we sent to{' '}
                   <Text style={styles.emailStrong}>{formData.email}</Text>
                 </Text>
+                <Text style={styles.changeEmail} onPress={backToForm} accessibilityRole="link" suppressHighlighting>
+                  Wrong email? Change it
+                </Text>
               </View>
 
               <View style={styles.codeBlock}>
@@ -396,13 +450,18 @@ export default function SignUpScreen({ onBackToLogin, onSuccess }) {
                   length={CODE_LENGTH}
                   error={!!codeError}
                 />
-                {codeError ? (
-                  <View style={styles.codeErrorRow} accessibilityLiveRegion="polite">
-                    <Feather name="alert-circle" size={18} color={colors.danger} />
-                    <Text style={styles.codeErrorText}>{codeError}</Text>
-                  </View>
-                ) : null}
               </View>
+
+              {codeError ? (
+                <Banner
+                  title="Wrong or expired code"
+                  text="Check the latest email, or send a new code."
+                  actionLabel={resendIn > 0 ? null : 'Send a new code'}
+                  onAction={handleResend}
+                />
+              ) : (
+                renderBanner()
+              )}
 
               <View style={styles.resendBlock}>
                 {resendIn > 0 ? (
@@ -433,12 +492,6 @@ export default function SignUpScreen({ onBackToLogin, onSuccess }) {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
-
-      <ErrorModal
-        visible={errorVisible}
-        errorMessage={errorMessage}
-        onClose={() => setErrorVisible(false)}
-      />
     </SafeAreaView>
   );
 }
@@ -446,7 +499,6 @@ export default function SignUpScreen({ onBackToLogin, onSuccess }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.ground,
   },
   flex: {
     flex: 1,
@@ -496,6 +548,20 @@ const styles = StyleSheet.create({
     paddingTop: 6,
     minHeight: 44,
   },
+  suggestion: {
+    ...type.caption,
+    fontSize: 14,
+    marginTop: -6,
+  },
+  suggestionLink: {
+    fontFamily: fonts.semibold,
+    color: colors.primary,
+  },
+  changeEmail: {
+    fontFamily: fonts.semibold,
+    fontSize: 14,
+    color: colors.primary,
+  },
   checkbox: {
     width: 22,
     height: 22,
@@ -506,6 +572,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 1,
+  },
+  checkboxError: {
+    borderColor: '#C9503E',
   },
   checkboxChecked: {
     backgroundColor: colors.primary,
@@ -562,16 +631,6 @@ const styles = StyleSheet.create({
   codeBlock: {
     gap: 12,
   },
-  codeErrorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  codeErrorText: {
-    fontFamily: fonts.semibold,
-    fontSize: 14,
-    color: colors.danger,
-  },
   resendBlock: {
     gap: 6,
   },
@@ -602,6 +661,7 @@ const styles = StyleSheet.create({
   },
   verifyActions: {
     marginTop: 'auto',
+    marginBottom: 24,
     gap: 12,
   },
   changeEmail: {

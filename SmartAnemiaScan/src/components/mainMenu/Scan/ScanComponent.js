@@ -7,11 +7,12 @@ import { Feather } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
 import { uploadAnemiaPhoto } from '../../../api/anemiaApi';
 import { getAccessToken } from '../../../api/tokenStorage';
-import { IconButton } from '../../ui';
+import { IconButton, useFeedback } from '../../ui';
 import { colors, fonts, radii } from '../../../theme';
 import ConjunctivaMaskEditor from './ConjunctivaMaskEditor';
 import { maskConjunctiva, prepareScanPhoto } from '../../../utils/conjunctivaMask';
 import { validateOutline } from '../../../utils/conjunctivaMask.shared';
+import { apiMessageKeys } from '../../../utils/apiErrors';
 
 // The backend allows a limited number of scans per minute and answers 429 with Retry-After in seconds
 const getUploadErrorText = (error, fallback) => {
@@ -46,6 +47,7 @@ function EyeFrame() {
 // The finished prediction goes to `onResult`; the parent shows the result screen.
 export default function ScanComponent({ onGoBack, onOpenGuide, onResult }) {
   const insets = useSafeAreaInsets();
+  const { showToast, handleRequestError } = useFeedback();
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [isUploading, setIsUploading] = useState(false);
   const [scanStatusText, setScanStatusText] = useState('');
@@ -53,6 +55,7 @@ export default function ScanComponent({ onGoBack, onOpenGuide, onResult }) {
   // Photo waiting for the user to outline the conjunctiva; only the outlined area is uploaded
   const [photoToMask, setPhotoToMask] = useState(null);
   const [maskErrorText, setMaskErrorText] = useState('');
+  const [photoNotRead, setPhotoNotRead] = useState(false);
   const cameraRef = useRef(null);
 
   useEffect(() => {
@@ -81,22 +84,48 @@ export default function ScanComponent({ onGoBack, onOpenGuide, onResult }) {
     }
 
     setMaskErrorText('');
+    setPhotoNotRead(false);
+    setIsUploading(true);
+    let masked;
+    try {
+      masked = await maskConjunctiva(photoToMask, points);
+    } catch {
+      setIsUploading(false);
+      setMaskErrorText('Please adjust the outline and try again.');
+      return;
+    }
+    await submitMasked(masked);
+  };
+
+  // Uploads an already outlined photo; also the "Try again" action of the network/server sheet
+  const submitMasked = async (masked) => {
     setIsUploading(true);
     try {
-      const masked = await maskConjunctiva(photoToMask, points);
       const predictionData = await uploadEyePhoto(masked.uri, masked.fileName);
       setPhotoToMask(null);
       setScanStatusText('');
       // Let the editor modal slide away before the result screen replaces the camera
       setTimeout(() => onResult(predictionData), 400);
     } catch (error) {
-      if (error?.response?.status === 400) {
+      if (apiMessageKeys(error).includes('photoNotRead')) {
+        // The photo itself can't be analysed: keep the editor open with a "Retake photo" banner
+        setPhotoNotRead(true);
+      } else if (error?.response?.status === 400) {
         // The backend rejected the image format (outline size, resolution): its text is meant for the user.
         // Keep the photo so they can fix the outline, or retake if the photo itself is the problem.
         setMaskErrorText(error.response.data?.description || 'Please adjust the outline and try again.');
       } else {
         setPhotoToMask(null);
-        setScanStatusText(getUploadErrorText(error, 'Failed to upload scan. Please try again.'));
+        if (error?.response?.status === 429) {
+          setScanStatusText(getUploadErrorText(error, ''));
+        } else {
+          // The sheet/toast waits for the editor modal to slide away
+          setTimeout(() => {
+            if (!handleRequestError(error, () => submitMasked(masked))) {
+              showToast({ tone: 'error', title: 'Photo didn’t upload', text: 'Tap the shutter to try again' });
+            }
+          }, 400);
+        }
       }
     } finally {
       setIsUploading(false);
@@ -106,6 +135,7 @@ export default function ScanComponent({ onGoBack, onOpenGuide, onResult }) {
   const closeMaskEditor = () => {
     setPhotoToMask(null);
     setMaskErrorText('');
+    setPhotoNotRead(false);
   };
 
   const handleCapturePhoto = async () => {
@@ -232,6 +262,7 @@ export default function ScanComponent({ onGoBack, onOpenGuide, onResult }) {
         photo={photoToMask}
         isSubmitting={isUploading}
         errorText={maskErrorText}
+        photoNotRead={photoNotRead}
         onRetake={closeMaskEditor}
         onConfirm={handleConfirmMask}
       />

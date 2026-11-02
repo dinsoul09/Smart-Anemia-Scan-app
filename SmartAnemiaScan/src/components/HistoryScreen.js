@@ -193,13 +193,11 @@ export default function HistoryScreen({ onOpenScan, onStartScan }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.ground,
   },
   loading: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.ground,
   },
   list: {
     paddingHorizontal: 20,
@@ -263,7 +261,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     height: 72,
     borderRadius: 18,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.block,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
@@ -308,7 +306,7 @@ const styles = StyleSheet.create({
     top: 92,
     height: 80,
     borderRadius: radii.xl,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.block,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
